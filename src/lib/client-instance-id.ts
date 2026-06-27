@@ -1,6 +1,6 @@
 "use client";
 
-const storageKey = "reservation_tracking_client_id";
+let clientInstanceId: string | null = null;
 
 function createClientInstanceId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -15,13 +15,9 @@ export function getClientInstanceId() {
     return "";
   }
 
-  const existing = window.sessionStorage.getItem(storageKey);
-
-  if (existing) {
-    return existing;
+  if (!clientInstanceId) {
+    clientInstanceId = createClientInstanceId();
   }
 
-  const nextId = createClientInstanceId();
-  window.sessionStorage.setItem(storageKey, nextId);
-  return nextId;
+  return clientInstanceId;
 }
