@@ -1,30 +1,35 @@
+"use client";
+
 import { Plus } from "lucide-react";
-import Link from "next/link";
 
 import {
   calendarStatusColors,
   pendingCalendarColor,
 } from "@/lib/calendar-colors";
-import type { CalendarDay } from "@/lib/dates";
 import type { CalendarEntry, ChangeRequest } from "@/lib/types";
 import { cn } from "@/lib/ui";
 
 const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+export type CalendarGridDay = {
+  dateKey: string;
+  dayNumber: number;
+  inMonth: boolean;
+  isToday: boolean;
+};
+
 export function CalendarGrid({
   days,
   isReadOnlyMonth,
-  monthKey,
+  onSelectDate,
   selectedDate,
-  selectedVenueId,
   entriesByDate,
   requestsByDate,
 }: {
-  days: CalendarDay[];
+  days: CalendarGridDay[];
   isReadOnlyMonth?: boolean;
-  monthKey: string;
+  onSelectDate: (dateKey: string) => void;
   selectedDate?: string;
-  selectedVenueId: string;
   entriesByDate: Map<string, CalendarEntry>;
   requestsByDate: Map<string, ChangeRequest>;
 }) {
@@ -52,10 +57,8 @@ export function CalendarGrid({
             const currentNote = entry?.note || "";
 
             return (
-              <Link
+              <button
                 key={day.dateKey}
-                href={`/calendar?venue=${selectedVenueId}&month=${monthKey}&date=${day.dateKey}`}
-                scroll={false}
                 className={cn(
                   "flex min-h-[132px] flex-col items-center border-b border-r border-[#e1eef2] p-3 text-center transition last:border-r-0 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#007c92]",
                   day.inMonth
@@ -63,6 +66,8 @@ export function CalendarGrid({
                     : "bg-slate-50 text-slate-400 opacity-70",
                   isSelected && "ring-2 ring-inset ring-[#007c92]",
                 )}
+                onClick={() => onSelectDate(day.dateKey)}
+                type="button"
               >
                 <span
                   className={cn(
@@ -122,7 +127,7 @@ export function CalendarGrid({
                     ) : null}
                   </div>
                 ) : null}
-              </Link>
+              </button>
             );
           })}
         </div>

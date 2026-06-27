@@ -1,5 +1,6 @@
+"use client";
+
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import {
@@ -14,17 +15,17 @@ export function MobileCalendarView({
   currentMonth,
   entriesByDate,
   isReadOnlyMonth,
+  onSelectDate,
   requestsByDate,
   selectedDate,
-  selectedVenueId,
   selectedWeekDays,
 }: {
   currentMonth: Date;
   entriesByDate: Map<string, CalendarEntry>;
   isReadOnlyMonth?: boolean;
+  onSelectDate: (dateKey: string) => void;
   requestsByDate: Map<string, ChangeRequest>;
   selectedDate: string;
-  selectedVenueId: string;
   selectedWeekDays: Date[];
 }) {
   const selectedDay = new Date(`${selectedDate}T00:00:00`);
@@ -39,8 +40,8 @@ export function MobileCalendarView({
       <div className="overflow-hidden rounded-2xl border border-[#d8e9ee] bg-white shadow-[0_14px_34px_rgba(15,23,42,0.06)]">
         <div className="flex items-center justify-between gap-2 border-b border-[#d8e9ee] bg-[#f8fcfd] px-3 py-3">
           <MobileWeekLink
-            href={dateHref(selectedVenueId, previousWeekDate)}
             label="Previous week"
+            onClick={() => onSelectDate(previousWeekDate)}
             variant="outline"
           >
             <ChevronLeft size={17} aria-hidden="true" />
@@ -54,8 +55,8 @@ export function MobileCalendarView({
             </p>
           </div>
           <MobileWeekLink
-            href={dateHref(selectedVenueId, nextWeekDate)}
             label="Next week"
+            onClick={() => onSelectDate(nextWeekDate)}
             variant="solid"
           >
             <ChevronRight size={17} aria-hidden="true" />
@@ -74,7 +75,7 @@ export function MobileCalendarView({
             const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
 
             return (
-              <Link
+              <button
                 aria-label={getDateLabel(key)}
                 className={cn(
                   "grid min-h-[52px] min-w-0 place-items-center gap-1 rounded-lg border px-0 py-1.5 text-center transition active:scale-[0.98]",
@@ -84,9 +85,9 @@ export function MobileCalendarView({
                   isSelected &&
                     "border-[#007c92] shadow-[0_8px_20px_rgba(0,124,146,0.12)] ring-2 ring-[#007c92]/18",
                 )}
-                href={dateHref(selectedVenueId, key)}
                 key={key}
-                scroll={false}
+                onClick={() => onSelectDate(key)}
+                type="button"
               >
                 <span className="grid h-6 w-6 place-items-center rounded-md bg-white/80 text-[11px] font-black leading-none text-slate-950 shadow-[0_4px_10px_rgba(15,23,42,0.06)] max-[360px]:h-5 max-[360px]:w-5 max-[360px]:text-[10px]">
                   {day.getDate()}
@@ -102,7 +103,7 @@ export function MobileCalendarView({
                     />
                   ) : null}
                 </span>
-              </Link>
+              </button>
             );
           })}
         </div>
@@ -188,31 +189,27 @@ function MobilePendingRequest({ request }: { request: ChangeRequest }) {
 
 function MobileWeekLink({
   children,
-  href,
   label,
+  onClick,
   variant,
 }: {
   children: ReactNode;
-  href: string;
   label: string;
+  onClick: () => void;
   variant: "outline" | "solid";
 }) {
   return (
-    <Link
+    <button
       aria-label={label}
       className={
         variant === "solid"
           ? "grid h-9 w-9 place-items-center rounded-xl bg-[#007c92] text-white shadow-[0_10px_22px_rgba(0,124,146,0.18)] transition active:scale-95"
           : "grid h-9 w-9 place-items-center rounded-xl border border-[#c9e5eb] bg-white text-[#0b4658] transition active:scale-95"
       }
-      href={href}
-      scroll={false}
+      onClick={onClick}
+      type="button"
     >
       {children}
-    </Link>
+    </button>
   );
-}
-
-function dateHref(venueId: string, dateKey: string) {
-  return `/calendar?venue=${venueId}&month=${dateKey.slice(0, 7)}&date=${dateKey}`;
 }

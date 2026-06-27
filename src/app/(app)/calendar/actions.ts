@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { requireUser } from "@/lib/auth";
 import { getEntryForDay } from "@/lib/data/calendar";
@@ -9,7 +10,7 @@ import {
   userCanManageVenueDirectly,
   userCanRequestVenueChange,
 } from "@/lib/data/venues";
-import { transaction } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import {
   getActionErrorMessage,
   getFormString,
@@ -66,20 +67,18 @@ export async function saveCalendarEntryAction(formData: FormData) {
   }
 
   try {
-    await transaction(async (client) => {
-      await client.query(
-        `INSERT INTO calendar_entries
-          (venue_id, reservation_date, status, note, created_by_id, updated_by_id)
-         VALUES ($1, $2::date, $3, $4, $5, $5)
-         ON CONFLICT (venue_id, reservation_date)
-         DO UPDATE SET
-           status = EXCLUDED.status,
-           note = EXCLUDED.note,
-           updated_by_id = EXCLUDED.updated_by_id,
-           updated_at = now()`,
-        [venueId, date, status, note, user.id],
-      );
-    });
+    await query(
+      `INSERT INTO calendar_entries
+        (venue_id, reservation_date, status, note, created_by_id, updated_by_id)
+       VALUES ($1, $2::date, $3, $4, $5, $5)
+       ON CONFLICT (venue_id, reservation_date)
+       DO UPDATE SET
+         status = EXCLUDED.status,
+         note = EXCLUDED.note,
+         updated_by_id = EXCLUDED.updated_by_id,
+         updated_at = now()`,
+      [venueId, date, status, note, user.id],
+    );
   } catch (error) {
     redirectToReturnPath(formData, "/calendar", {
       message: getActionErrorMessage(error, "Calendar day could not be saved."),
@@ -88,7 +87,7 @@ export async function saveCalendarEntryAction(formData: FormData) {
   }
 
   revalidatePath("/calendar");
-  await publishRealtimeEvent({
+  publishRealtimeAfterResponse({
     date,
     type: "calendar-entry-changed",
     venueId,
@@ -187,7 +186,7 @@ export async function requestCalendarChangeAction(formData: FormData) {
 
   revalidatePath("/calendar");
   revalidatePath("/approvals");
-  await publishRealtimeEvent({
+  publishRealtimeAfterResponse({
     date,
     type: "calendar-request-changed",
     venueId,
@@ -293,7 +292,7 @@ export async function decideChangeRequestAction(formData: FormData) {
 
   revalidatePath("/calendar");
   revalidatePath("/approvals");
-  await publishRealtimeEvent({
+  publishRealtimeAfterResponse({
     date: changedDate,
     requestId,
     type: "calendar-request-changed",
@@ -357,7 +356,7 @@ export async function deletePendingChangeRequestAction(formData: FormData) {
 
   revalidatePath("/calendar");
   revalidatePath("/approvals");
-  await publishRealtimeEvent({
+  publishRealtimeAfterResponse({
     date,
     requestId,
     type: "calendar-request-changed",
@@ -366,5 +365,13 @@ export async function deletePendingChangeRequestAction(formData: FormData) {
   redirectToReturnPath(formData, "/approvals", {
     message: "Pending request deleted successfully.",
     type: "success",
+  });
+}
+
+function publishRealtimeAfterResponse(
+  event: Parameters<typeof publishRealtimeEvent>[0],
+) {
+  after(async () => {
+    await publishRealtimeEvent(event);
   });
 }
