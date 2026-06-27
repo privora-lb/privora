@@ -1,10 +1,25 @@
+import { getDatabase, MissingDatabaseConnectionError } from "@netlify/database";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
 const connectionString =
   process.env.DATABASE_URL ?? process.env.NETLIFY_DATABASE_URL;
 
-if (!connectionString) {
-  throw new Error("DATABASE_URL or NETLIFY_DATABASE_URL is required.");
+function createPool() {
+  if (connectionString) {
+    return new Pool({ connectionString });
+  }
+
+  try {
+    return getDatabase().pool as unknown as Pool;
+  } catch (error) {
+    if (error instanceof MissingDatabaseConnectionError) {
+      throw new Error(
+        "DATABASE_URL, NETLIFY_DATABASE_URL, or NETLIFY_DB_URL is required.",
+      );
+    }
+
+    throw error;
+  }
 }
 
 declare global {
@@ -12,7 +27,7 @@ declare global {
 }
 
 export const pool =
-  globalThis.reservationTrackingPool ?? new Pool({ connectionString });
+  globalThis.reservationTrackingPool ?? createPool();
 
 if (process.env.NODE_ENV !== "production") {
   globalThis.reservationTrackingPool = pool;
