@@ -6,7 +6,6 @@ import {
   LockKeyhole,
   Send,
 } from "lucide-react";
-import type { FormEvent } from "react";
 
 import {
   decideChangeRequestAction,
@@ -27,7 +26,6 @@ import { getDateLabel } from "@/lib/dates";
 import type {
   AppUser,
   CalendarEntry,
-  CalendarStatus,
   ChangeRequest,
   Venue,
 } from "@/lib/types";
@@ -40,7 +38,6 @@ export function DayPanel({
   canRequest,
   entry,
   isReadOnly,
-  onEntryUpdated,
   pendingRequest,
   returnTo,
 }: {
@@ -51,7 +48,6 @@ export function DayPanel({
   date?: string;
   entry?: CalendarEntry;
   isReadOnly?: boolean;
-  onEntryUpdated?: (date: string, entry?: CalendarEntry) => void;
   pendingRequest?: ChangeRequest;
   returnTo: string;
 }) {
@@ -120,7 +116,6 @@ export function DayPanel({
             date={date}
             entry={entry}
             key={`direct-${date}-${entry?.status ?? "available"}-${entry?.note ?? ""}`}
-            onEntryUpdated={onEntryUpdated}
             returnTo={returnTo}
             venueId={venue.id}
           />
@@ -227,49 +222,19 @@ function PendingRequestBox({
 function DirectEditForm({
   date,
   entry,
-  onEntryUpdated,
   returnTo,
   venueId,
 }: {
   date: string;
   entry?: CalendarEntry;
-  onEntryUpdated?: (date: string, entry?: CalendarEntry) => void;
   returnTo: string;
   venueId: string;
 }) {
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    const formData = new FormData(event.currentTarget);
-    const status = formData.get("status");
-    const note = formData.get("note");
-
-    if (status !== "available" && status !== "booked") {
-      return;
-    }
-
-    const normalizedNote = typeof note === "string" ? note.trim() : "";
-
-    if (!entry && status === "available" && !normalizedNote) {
-      onEntryUpdated?.(date, undefined);
-      return;
-    }
-
-    onEntryUpdated?.(date, {
-      createdByName: entry?.createdByName ?? "",
-      date,
-      id: entry?.id ?? `optimistic-${venueId}-${date}`,
-      note: normalizedNote,
-      status: status as CalendarStatus,
-      updatedByName: entry?.updatedByName ?? "",
-      venueId,
-    });
-  }
-
   return (
     <form
       action={saveCalendarEntryAction}
       className="flex flex-1 flex-col gap-5 pb-1"
       data-calendar-preserve-scroll="true"
-      onSubmit={handleSubmit}
     >
       <input name="venueId" type="hidden" value={venueId} />
       <input name="date" type="hidden" value={date} />

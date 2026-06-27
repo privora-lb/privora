@@ -59,10 +59,9 @@ export function CalendarWorkspace({
 }) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(initialSelectedDate);
-  const [localEntries, setLocalEntries] = useState(entries);
   const entriesByDate = useMemo(
-    () => new Map(localEntries.map((entry) => [entry.date, entry])),
-    [localEntries],
+    () => new Map(entries.map((entry) => [entry.date, entry])),
+    [entries],
   );
   const requestsByDate = useMemo(
     () => new Map(pendingRequests.map((request) => [request.date, request])),
@@ -121,15 +120,6 @@ export function CalendarWorkspace({
       "",
       `/calendar?venue=${selectedVenue.id}&month=${monthKey}&date=${dateKey}`,
     );
-  }
-
-  function updateEntry(date: string, nextEntry?: CalendarEntry) {
-    setLocalEntries((current) => {
-      const remaining = current.filter((entry) => entry.date !== date);
-      return nextEntry
-        ? [...remaining, nextEntry].sort((a, b) => a.date.localeCompare(b.date))
-        : remaining;
-    });
   }
 
   return (
@@ -208,7 +198,6 @@ export function CalendarWorkspace({
             date={selectedDate}
             entry={selectedDate ? entriesByDate.get(selectedDate) : undefined}
             isReadOnly={isSelectedDateReadOnly}
-            onEntryUpdated={updateEntry}
             pendingRequest={
               selectedDate ? requestsByDate.get(selectedDate) : undefined
             }
@@ -235,7 +224,6 @@ export function CalendarWorkspace({
             date={selectedMobileDate}
             entry={entriesByDate.get(selectedMobileDate)}
             isReadOnly={isMobileDateReadOnly}
-            onEntryUpdated={updateEntry}
             pendingRequest={requestsByDate.get(selectedMobileDate)}
             returnTo={mobileReturnTo}
             user={user}
