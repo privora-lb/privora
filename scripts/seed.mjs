@@ -5,6 +5,7 @@ const { Pool } = pg;
 
 const connectionString =
   process.env.DATABASE_URL ??
+  process.env.NETLIFY_DATABASE_URL ??
   "postgres://naderkhaddaj@localhost:5432/reservation_tracking";
 
 const pool = new Pool({ connectionString });

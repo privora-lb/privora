@@ -1,9 +1,10 @@
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString =
+  process.env.DATABASE_URL ?? process.env.NETLIFY_DATABASE_URL;
 
 if (!connectionString) {
-  throw new Error("DATABASE_URL is required.");
+  throw new Error("DATABASE_URL or NETLIFY_DATABASE_URL is required.");
 }
 
 declare global {
