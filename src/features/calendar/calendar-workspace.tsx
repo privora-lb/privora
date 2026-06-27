@@ -4,6 +4,8 @@ import { CalendarDays } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { CmsToastStack } from "@/components/cms/CmsToastStack";
+import { useCmsToasts } from "@/components/cms/use-cms-toasts";
 import { DayPanel } from "@/features/calendar/day-panel";
 import {
   CalendarGrid,
@@ -61,14 +63,39 @@ export function CalendarWorkspace({
 }) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(initialSelectedDate);
-  const entriesByDate = useMemo(
-    () => new Map(entries.map((entry) => [entry.date, entry])),
-    [entries],
-  );
-  const requestsByDate = useMemo(
-    () => new Map(pendingRequests.map((request) => [request.date, request])),
-    [pendingRequests],
-  );
+  const [entryOverrides, setEntryOverrides] = useState<
+    Record<string, CalendarEntry | null>
+  >({});
+  const [requestOverrides, setRequestOverrides] = useState<
+    Record<string, ChangeRequest | null>
+  >({});
+  const { dismissToast, pushToast, toasts } = useCmsToasts();
+  const entriesByDate = useMemo(() => {
+    const map = new Map(entries.map((entry) => [entry.date, entry]));
+
+    Object.entries(entryOverrides).forEach(([dateKey, entry]) => {
+      if (entry) {
+        map.set(dateKey, entry);
+      } else {
+        map.delete(dateKey);
+      }
+    });
+
+    return map;
+  }, [entries, entryOverrides]);
+  const requestsByDate = useMemo(() => {
+    const map = new Map(pendingRequests.map((request) => [request.date, request]));
+
+    Object.entries(requestOverrides).forEach(([dateKey, request]) => {
+      if (request) {
+        map.set(dateKey, request);
+      } else {
+        map.delete(dateKey);
+      }
+    });
+
+    return map;
+  }, [pendingRequests, requestOverrides]);
   const selectedMobileDate = selectedDate ?? initialMobileDate;
   const returnTo = `/calendar?venue=${selectedVenue.id}&month=${monthKey}${
     selectedDate ? `&date=${selectedDate}` : ""
@@ -124,8 +151,41 @@ export function CalendarWorkspace({
     );
   }
 
+  function replaceEntry(dateKey: string, entry?: CalendarEntry | null) {
+    setEntryOverrides((current) => ({ ...current, [dateKey]: entry ?? null }));
+  }
+
+  function replacePendingRequest(request?: ChangeRequest | null) {
+    if (!request) {
+      return;
+    }
+
+    setRequestOverrides((current) => ({ ...current, [request.date]: request }));
+  }
+
+  function removePendingRequest(requestId: string) {
+    const serverRequest = pendingRequests.find((request) => request.id === requestId);
+
+    setRequestOverrides((current) => {
+      const next = { ...current };
+
+      if (serverRequest) {
+        next[serverRequest.date] = null;
+      }
+
+      Object.values(current).forEach((request) => {
+        if (request?.id === requestId) {
+          next[request.date] = null;
+        }
+      });
+
+      return next;
+    });
+  }
+
   return (
     <section className="overflow-visible rounded-2xl border border-[#d8e9ee] bg-white shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+      <CmsToastStack onDismiss={dismissToast} toasts={toasts} />
       <div
         className={`grid gap-4 border-b border-[#d8e9ee] bg-[#f5fbfd] px-5 py-3 lg:items-end max-[760px]:px-3 ${
           user.role === "superadmin"
@@ -202,6 +262,10 @@ export function CalendarWorkspace({
             date={selectedDate}
             entry={selectedDate ? entriesByDate.get(selectedDate) : undefined}
             isReadOnly={isSelectedDateReadOnly}
+            onEntryChange={replaceEntry}
+            onPendingRequestChange={replacePendingRequest}
+            onPendingRequestRemove={removePendingRequest}
+            onToast={pushToast}
             pendingRequest={
               selectedDate ? requestsByDate.get(selectedDate) : undefined
             }
@@ -229,6 +293,10 @@ export function CalendarWorkspace({
             date={selectedMobileDate}
             entry={entriesByDate.get(selectedMobileDate)}
             isReadOnly={isMobileDateReadOnly}
+            onEntryChange={replaceEntry}
+            onPendingRequestChange={replacePendingRequest}
+            onPendingRequestRemove={removePendingRequest}
+            onToast={pushToast}
             pendingRequest={requestsByDate.get(selectedMobileDate)}
             returnTo={mobileReturnTo}
             user={user}

@@ -70,11 +70,14 @@ export function CalendarDayFields({
 }
 
 export function CalendarSubmitButton({
+  isPending,
   mode,
 }: {
+  isPending?: boolean;
   mode: "request" | "save";
 }) {
-  const { pending } = useFormStatus();
+  const { pending: formPending } = useFormStatus();
+  const pending = isPending ?? formPending;
   const isRequest = mode === "request";
   const Icon = pending ? Loader2 : isRequest ? Send : Check;
   const label = pending ? (isRequest ? "Sending..." : "Saving...") : isRequest ? "Send request" : "Save day";
@@ -98,10 +101,15 @@ export function CalendarSubmitButton({
 
 export function DecisionSubmitButton({
   decision,
+  isDisabled,
+  isPending,
 }: {
   decision: "approved" | "rejected";
+  isDisabled?: boolean;
+  isPending?: boolean;
 }) {
-  const { pending } = useFormStatus();
+  const { pending: formPending } = useFormStatus();
+  const pending = isPending ?? formPending;
   const isApproved = decision === "approved";
   const Icon = pending ? Loader2 : isApproved ? Check : X;
 
@@ -113,7 +121,7 @@ export function DecisionSubmitButton({
           ? "bg-[#007c92] shadow-[0_14px_28px_rgba(0,124,146,0.18)] hover:bg-[#00677a]"
           : "bg-rose-600 shadow-[0_14px_28px_rgba(225,29,72,0.16)] hover:bg-rose-700",
       )}
-      disabled={pending}
+      disabled={isDisabled || pending}
       name="decision"
       type="submit"
       value={decision}

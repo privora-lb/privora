@@ -1,17 +1,21 @@
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, Loader2, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 export function DeleteConfirmationModal({
   children,
   confirmFormId,
   confirmLabel = "Delete",
+  isConfirming,
   onCancel,
+  onConfirm,
   title,
 }: {
   children: ReactNode;
-  confirmFormId: string;
+  confirmFormId?: string;
   confirmLabel?: string;
+  isConfirming?: boolean;
   onCancel: () => void;
+  onConfirm?: () => void;
   title: string;
 }) {
   return (
@@ -49,9 +53,17 @@ export function DeleteConfirmationModal({
             Cancel
           </button>
           <button
-            className="inline-flex h-10 items-center justify-center rounded-xl bg-rose-700 px-4 text-sm font-black text-white shadow-[0_14px_28px_rgba(190,18,60,0.22)] transition hover:bg-rose-800"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-rose-700 px-4 text-sm font-black text-white shadow-[0_14px_28px_rgba(190,18,60,0.22)] transition hover:bg-rose-800 disabled:cursor-wait disabled:opacity-75"
+            disabled={isConfirming}
             onClick={() => {
-              const form = document.getElementById(confirmFormId);
+              if (onConfirm) {
+                onConfirm();
+                return;
+              }
+
+              const form = confirmFormId
+                ? document.getElementById(confirmFormId)
+                : null;
 
               if (form instanceof HTMLFormElement) {
                 form.requestSubmit();
@@ -61,7 +73,10 @@ export function DeleteConfirmationModal({
             }}
             type="button"
           >
-            {confirmLabel}
+            {isConfirming ? (
+              <Loader2 className="animate-spin" size={15} aria-hidden="true" />
+            ) : null}
+            {isConfirming ? "Deleting..." : confirmLabel}
           </button>
         </div>
       </section>

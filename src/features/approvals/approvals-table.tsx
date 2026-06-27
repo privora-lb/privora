@@ -1,18 +1,20 @@
 "use client";
 
-import { Check, Trash2, X } from "lucide-react";
+import { Check, Loader2, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import {
-  decideChangeRequestAction,
-  deletePendingChangeRequestAction,
+  decideChangeRequestInlineAction,
+  deletePendingChangeRequestInlineAction,
 } from "@/app/(app)/calendar/actions";
-import { CmsDataTable, type CmsDataTableColumn } from "@/components/cms/CmsDataTable";
+import { CmsDataTable } from "@/components/cms/CmsDataTable";
+import { CmsToastStack } from "@/components/cms/CmsToastStack";
 import { CmsDataTableIconButton } from "@/components/cms/data-table/CmsDataTableIconButton";
-import { cmsTableTextareaClassName } from "@/components/cms/cms-table-controls";
 import { DeleteConfirmationModal } from "@/components/cms/delete-confirmation-modal";
-import { Badge } from "@/components/ui/badge";
+import { useCmsToasts } from "@/components/cms/use-cms-toasts";
 import { ApprovalsTableFilters } from "@/features/approvals/approvals-table-filters";
+import { useApprovalsColumns } from "@/features/approvals/approvals-table-columns";
+import { getClientInstanceId } from "@/lib/client-instance-id";
 import { getDateLabel } from "@/lib/dates";
 import type { CalendarStatus, RequestStatus } from "@/lib/types";
 
@@ -34,7 +36,7 @@ export type ApprovalTableRow = {
   canDelete: boolean;
 };
 
-type ApprovalDraftRow = ApprovalTableRow & {
+export type ApprovalDraftRow = ApprovalTableRow & {
   decisionDraft: string;
 };
 
@@ -50,16 +52,31 @@ export function ApprovalsTable({
   const [deleteRequest, setDeleteRequest] = useState<ApprovalDraftRow | null>(
     null,
   );
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [rowOverrides, setRowOverrides] = useState<
+    Record<string, Partial<ApprovalTableRow> | null>
+  >({});
   const [decisionNotes, setDecisionNotes] = useState<Record<string, string>>(
     () => Object.fromEntries(requests.map((request) => [request.id, ""])),
   );
+  const { dismissToast, pushToast, toasts } = useCmsToasts();
   const rows = useMemo(
     () =>
-      requests.map((request) => ({
-        ...request,
-        decisionDraft: decisionNotes[request.id] ?? "",
-      })),
-    [decisionNotes, requests],
+      requests
+        .flatMap((request) => {
+          const override = rowOverrides[request.id];
+
+          if (override === null) {
+            return [];
+          }
+
+          return [{ ...request, ...override }];
+        })
+        .map((request) => ({
+          ...request,
+          decisionDraft: decisionNotes[request.id] ?? "",
+        })),
+    [decisionNotes, requests, rowOverrides],
   );
   const venueFilterOptions = useMemo(() => {
     const venueMap = new Map<string, { id: string; name: string; typeName: string }>();
@@ -90,129 +107,91 @@ export function ApprovalsTable({
   const hasDecisionActions = rows.some((row) => row.canDecide);
   const hasDeleteActions = rows.some((row) => row.canDelete);
 
-  const columns = useMemo<CmsDataTableColumn<ApprovalDraftRow>[]>(
-    () => [
-      {
-        key: "venueName",
-        label: "Venue",
-        baseWidth: 220,
-        minWidth: 170,
-        maxWidth: 380,
-        grow: 0.7,
-        sortable: true,
-        textValue: (row) => row.venueName,
+  async function handleDecision(
+    row: ApprovalDraftRow,
+    decision: Extract<RequestStatus, "approved" | "rejected">,
+  ) {
+    const actionKey = `decision:${row.id}:${decision}`;
+
+    if (pendingAction) {
+      return;
+    }
+
+    setPendingAction(actionKey);
+    setRowOverrides((current) => ({
+      ...current,
+      [row.id]: {
+        canDecide: false,
+        canDelete: false,
+        decisionNote: row.decisionDraft,
+        status: decision,
       },
-      {
-        key: "venueTypeName",
-        label: "Type",
-        baseWidth: 150,
-        minWidth: 120,
-        maxWidth: 240,
-        sortable: true,
-        textValue: (row) => row.venueTypeName,
-      },
-      {
-        key: "date",
-        label: "Date",
-        baseWidth: 220,
-        minWidth: 170,
-        maxWidth: 330,
-        sortable: true,
-        sortType: "date",
-        sortValue: (row) => row.date,
-        textValue: (row) => getDateLabel(row.date),
-      },
-      {
-        key: "requestedStatus",
-        label: "Requested",
-        baseWidth: 140,
-        minWidth: 120,
-        maxWidth: 220,
-        align: "center",
-        sortable: true,
-        textValue: (row) => row.requestedStatus,
-        render: (row) => <CalendarStatusBadge status={row.requestedStatus} />,
-      },
-      {
-        key: "requestedNote",
-        label: "Request note",
-        baseWidth: 260,
-        minWidth: 200,
-        maxWidth: 520,
-        grow: 0.8,
-        sortable: true,
-        textValue: (row) => row.requestedNote || "No note supplied.",
-      },
-      {
-        key: "previousState",
-        label: "Previous state",
-        baseWidth: 240,
-        minWidth: 190,
-        maxWidth: 460,
-        grow: 0.6,
-        sortable: true,
-        textValue: (row) =>
-          `${row.previousStatus ?? "No entry"} ${row.previousNote ?? ""}`,
-      },
-      {
-        key: "ownerName",
-        label: "Owner",
-        baseWidth: 190,
-        minWidth: 150,
-        maxWidth: 320,
-        sortable: true,
-        textValue: (row) => row.ownerName,
-      },
-      {
-        key: "status",
-        label: "Status",
-        baseWidth: 140,
-        minWidth: 120,
-        maxWidth: 220,
-        align: "center",
-        sortable: true,
-        textValue: (row) => row.status,
-        render: (row) => <RequestStatusBadge status={row.status} />,
-      },
-      {
-        key: "decisionNote",
-        label: "Decision note",
-        baseWidth: 260,
-        minWidth: 210,
-        maxWidth: 520,
-        grow: 0.8,
-        sortable: true,
-        textValue: (row) => row.decisionNote || row.decisionDraft,
-        render: (row) =>
-          row.canDecide ? (
-            <textarea
-              className={cmsTableTextareaClassName}
-              onChange={(event) =>
-                setDecisionNotes((current) => ({
-                  ...current,
-                  [row.id]: event.target.value,
-                }))
-              }
-              placeholder="Optional decision note"
-              value={row.decisionDraft}
-            />
-          ) : (
-            <span className="line-clamp-2">
-              {row.decisionNote || "No decision note."}
-            </span>
-          ),
-      },
-    ],
-    [],
-  );
+    }));
+
+    const formData = new FormData();
+    formData.set("requestId", row.id);
+    formData.set("decision", decision);
+    formData.set("decisionNote", row.decisionDraft);
+    formData.set("sourceClientId", getClientInstanceId());
+
+    const result = await decideChangeRequestInlineAction(formData);
+    setPendingAction(null);
+
+    if (result.ok) {
+      pushToast("success", result.message);
+      return;
+    }
+
+    setRowOverrides((current) => {
+      const next = { ...current };
+      delete next[row.id];
+      return next;
+    });
+    pushToast("error", result.message);
+  }
+
+  async function handleDelete(row: ApprovalDraftRow) {
+    const actionKey = `delete:${row.id}`;
+
+    if (pendingAction) {
+      return;
+    }
+
+    setPendingAction(actionKey);
+    setDeleteRequest(null);
+    setRowOverrides((current) => ({ ...current, [row.id]: null }));
+
+    const formData = new FormData();
+    formData.set("requestId", row.id);
+    formData.set("sourceClientId", getClientInstanceId());
+
+    const result = await deletePendingChangeRequestInlineAction(formData);
+    setPendingAction(null);
+
+    if (result.ok) {
+      pushToast("success", result.message);
+      return;
+    }
+
+    setRowOverrides((current) => {
+      const next = { ...current };
+      delete next[row.id];
+      return next;
+    });
+    pushToast("error", result.message);
+  }
+
+  const columns = useApprovalsColumns(setDecisionNotes);
 
   return (
     <>
-      <HiddenApprovalForms rows={rows} />
+      <CmsToastStack onDismiss={dismissToast} toasts={toasts} />
       {deleteRequest ? (
         <DeleteConfirmationModal
-          confirmFormId={getDeleteRequestFormId(deleteRequest.id)}
           onCancel={() => setDeleteRequest(null)}
+          onConfirm={() => {
+            void handleDelete(deleteRequest);
+          }}
           title="Delete pending request?"
         >
           This will remove the pending request for {deleteRequest.venueName} on{" "}
@@ -228,34 +207,60 @@ export function ApprovalsTable({
                 {
                   label: "Approve request",
                   isVisible: (row) => row.canDecide,
-                  render: (row) => (
-                    <CmsDataTableIconButton
-                      className="h-8 w-8 rounded-lg text-emerald-700 hover:text-emerald-800"
-                      form={getApprovalFormId(row.id)}
-                      label="Approve request"
-                      name="decision"
-                      type="submit"
-                      value="approved"
-                    >
-                      <Check size={15} aria-hidden="true" />
-                    </CmsDataTableIconButton>
-                  ),
+                  render: (row) => {
+                    const isPending =
+                      pendingAction === `decision:${row.id}:approved`;
+
+                    return (
+                      <CmsDataTableIconButton
+                        className="h-8 w-8 rounded-lg text-emerald-700 hover:text-emerald-800"
+                        disabled={Boolean(pendingAction)}
+                        label="Approve request"
+                        onClick={() => {
+                          void handleDecision(row, "approved");
+                        }}
+                      >
+                        {isPending ? (
+                          <Loader2
+                            className="animate-spin"
+                            size={15}
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Check size={15} aria-hidden="true" />
+                        )}
+                      </CmsDataTableIconButton>
+                    );
+                  },
                 },
                 {
                   label: "Reject request",
                   isVisible: (row) => row.canDecide,
-                  render: (row) => (
-                    <CmsDataTableIconButton
-                      className="h-8 w-8 rounded-lg text-rose-700 hover:text-rose-800"
-                      form={getApprovalFormId(row.id)}
-                      label="Reject request"
-                      name="decision"
-                      type="submit"
-                      value="rejected"
-                    >
-                      <X size={15} aria-hidden="true" />
-                    </CmsDataTableIconButton>
-                  ),
+                  render: (row) => {
+                    const isPending =
+                      pendingAction === `decision:${row.id}:rejected`;
+
+                    return (
+                      <CmsDataTableIconButton
+                        className="h-8 w-8 rounded-lg text-rose-700 hover:text-rose-800"
+                        disabled={Boolean(pendingAction)}
+                        label="Reject request"
+                        onClick={() => {
+                          void handleDecision(row, "rejected");
+                        }}
+                      >
+                        {isPending ? (
+                          <Loader2
+                            className="animate-spin"
+                            size={15}
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <X size={15} aria-hidden="true" />
+                        )}
+                      </CmsDataTableIconButton>
+                    );
+                  },
                 },
                 {
                   label: "Delete pending request",
@@ -263,6 +268,7 @@ export function ApprovalsTable({
                   render: (row) => (
                     <CmsDataTableIconButton
                       className="h-8 w-8 rounded-lg text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                      disabled={Boolean(pendingAction)}
                       label="Delete pending request"
                       onClick={() => setDeleteRequest(row)}
                       type="button"
@@ -304,61 +310,4 @@ export function ApprovalsTable({
       />
     </>
   );
-}
-
-function HiddenApprovalForms({ rows }: { rows: ApprovalDraftRow[] }) {
-  return (
-    <div className="hidden">
-      {rows.map((row) => (
-        <div key={row.id}>
-          <form action={decideChangeRequestAction} id={getApprovalFormId(row.id)}>
-            <input name="requestId" readOnly value={row.id} />
-            <input name="returnTo" readOnly value="/approvals" />
-            <input name="decisionNote" readOnly value={row.decisionDraft} />
-          </form>
-          {row.canDelete ? (
-            <form
-              action={deletePendingChangeRequestAction}
-              id={getDeleteRequestFormId(row.id)}
-            >
-              <input name="requestId" readOnly value={row.id} />
-              <input name="returnTo" readOnly value="/approvals" />
-            </form>
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function RequestStatusBadge({ status }: { status: RequestStatus }) {
-  if (status === "approved") {
-    return <Badge tone="success">Approved</Badge>;
-  }
-
-  if (status === "rejected") {
-    return <Badge tone="danger">Rejected</Badge>;
-  }
-
-  return <Badge tone="warning">Pending</Badge>;
-}
-
-function CalendarStatusBadge({ status }: { status: CalendarStatus }) {
-  return status === "available" ? (
-    <span className="inline-flex h-7 w-[92px] items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2 text-xs font-medium text-emerald-800">
-      Available
-    </span>
-  ) : (
-    <span className="inline-flex h-7 w-[92px] items-center justify-center rounded-md border border-red-200 bg-red-50 px-2 text-xs font-medium text-red-800">
-      Booked
-    </span>
-  );
-}
-
-function getApprovalFormId(id: string) {
-  return `approval-form-${id}`;
-}
-
-function getDeleteRequestFormId(id: string) {
-  return `delete-request-form-${id}`;
 }

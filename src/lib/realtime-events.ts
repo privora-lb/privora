@@ -5,6 +5,7 @@ export type RealtimeEventType =
 export type RealtimeEvent = {
   date?: string;
   requestId?: string;
+  sourceClientId?: string;
   timestamp: number;
   type: RealtimeEventType;
   venueId: string;

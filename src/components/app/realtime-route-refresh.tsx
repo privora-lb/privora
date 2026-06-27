@@ -8,6 +8,7 @@ import {
   getVenueRealtimeChannel,
   realtimeGlobalChannel,
 } from "@/lib/realtime-channels";
+import { getClientInstanceId } from "@/lib/client-instance-id";
 import { realtimeEventName, type RealtimeEvent } from "@/lib/realtime-events";
 import type { UserRole } from "@/lib/types";
 
@@ -23,6 +24,7 @@ export function RealtimeRouteRefresh({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const clientInstanceId = useMemo(() => getClientInstanceId(), []);
   const refreshTimer = useRef<number | undefined>(undefined);
   const queryString = searchParams.toString();
   const channelNames = useMemo(
@@ -58,6 +60,10 @@ export function RealtimeRouteRefresh({
         return;
       }
 
+      if (event.sourceClientId && event.sourceClientId === clientInstanceId) {
+        return;
+      }
+
       if (shouldNavigateToOwnerRequest(pathname, userRole, event)) {
         const target = getCalendarTarget(event);
 
@@ -88,7 +94,7 @@ export function RealtimeRouteRefresh({
       });
       client.close();
     };
-  }, [channelNames, pathname, queryString, router, userRole]);
+  }, [channelNames, clientInstanceId, pathname, queryString, router, userRole]);
 
   return null;
 }
