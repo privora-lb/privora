@@ -1,0 +1,35 @@
+{
+  "name": "reservation-tracking",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "db:create": "createdb reservation_tracking",
+    "db:migrate": "psql -d reservation_tracking -f db/schema.sql",
+    "db:seed": "node scripts/seed.mjs",
+    "db:reset": "npm run db:migrate && npm run db:seed"
+  },
+  "dependencies": {
+    "ably": "^2.23.0",
+    "lucide-react": "latest",
+    "next": "latest",
+    "pg": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "latest",
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "latest",
+    "@types/pg": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest"
+  }
+}
