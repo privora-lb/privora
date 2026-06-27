@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import { toggleOwnerActiveAction } from "@/app/(app)/management/actions";
 import { ActiveSwitch } from "@/components/cms/active-switch";
 import {
   CmsCreateModal,
@@ -11,11 +10,15 @@ import {
 import type { AppUser, Venue } from "@/lib/types";
 
 export function OwnerActivationModal({
+  isSubmitting,
   onClose,
+  onSubmit,
   owner,
   venues,
 }: {
+  isSubmitting: boolean;
   onClose: () => void;
+  onSubmit: (venueIds: string[]) => void;
   owner: AppUser;
   venues: Venue[];
 }) {
@@ -42,11 +45,13 @@ export function OwnerActivationModal({
       onClose={onClose}
       title={`Activate ${owner.name}`}
     >
-      <form action={toggleOwnerActiveAction} className="grid gap-4">
-        <input name="returnTo" type="hidden" value="/owners" />
-        <input name="ownerId" type="hidden" value={owner.id} />
-        <input name="isActive" type="hidden" value="true" />
-
+      <form
+        className="grid gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit(Array.from(selectedVenueIds));
+        }}
+      >
         <div className="grid max-h-80 gap-2 overflow-y-auto pr-1">
           {venues.map((venue) => {
             const checked = selectedVenueIds.has(venue.id);
@@ -64,11 +69,9 @@ export function OwnerActivationModal({
                     {venue.typeName}
                   </span>
                 </span>
-                {checked ? (
-                  <input name="venueIds" type="hidden" value={venue.id} />
-                ) : null}
                 <ActiveSwitch
                   checked={checked}
+                  disabled={isSubmitting}
                   label={`Activate ${venue.name}`}
                   onClick={() => toggleVenue(venue.id)}
                   type="button"
@@ -80,10 +83,10 @@ export function OwnerActivationModal({
 
         <button
           className={cmsSubmitButtonClassName}
-          disabled={!canSubmit}
+          disabled={!canSubmit || isSubmitting}
           type="submit"
         >
-          Activate selected venues
+          {isSubmitting ? "Activating..." : "Activate selected venues"}
         </button>
       </form>
     </CmsCreateModal>

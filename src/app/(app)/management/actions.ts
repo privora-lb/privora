@@ -11,6 +11,41 @@ import {
   redirectToReturnPath,
 } from "@/lib/forms";
 import { hashPassword } from "@/lib/password";
+import type { AppUser, Venue } from "@/lib/types";
+
+type OwnerRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone_number: string;
+  role: "owner";
+  is_active: boolean;
+};
+
+type VenueRow = {
+  id: string;
+  name: string;
+  description: string;
+  type_id: string;
+  type_name: string;
+  assigned_user_id: string;
+  assigned_user_name: string;
+  assigned_user_role: "owner" | "superadmin";
+  assigned_user_is_active: boolean;
+  is_active: boolean;
+};
+
+type OwnerActionResult =
+  | {
+      affectedVenues?: Venue[];
+      message: string;
+      ok: true;
+      owner: AppUser;
+    }
+  | {
+      message: string;
+      ok: false;
+    };
 
 function getRequiredPhoneNumber(formData: FormData) {
   const phoneNumber = getFormString(formData, "phoneNumber");
@@ -30,16 +65,7 @@ export async function createOwnerAction(formData: FormData) {
   await requireSuperadmin();
 
   try {
-    const name = getRequiredFormString(formData, "name");
-    const email = getFormString(formData, "email") || null;
-    const phoneNumber = getRequiredPhoneNumber(formData);
-    const password = getRequiredFormString(formData, "password");
-
-    await query(
-      `INSERT INTO users (name, email, phone_number, password_hash, role)
-       VALUES ($1, $2, $3, $4, 'owner')`,
-      [name, email, phoneNumber, await hashPassword(password)],
-    );
+    await createOwnerRecord(formData);
   } catch (error) {
     redirectToReturnPath(formData, "/owners", {
       message: getActionErrorMessage(error, "Owner could not be created."),
@@ -55,38 +81,34 @@ export async function createOwnerAction(formData: FormData) {
   });
 }
 
+export async function createOwnerInlineAction(
+  formData: FormData,
+): Promise<OwnerActionResult> {
+  await requireSuperadmin();
+
+  try {
+    const owner = await createOwnerRecord(formData);
+
+    revalidateOwnersAndVenues();
+
+    return {
+      message: "Owner created successfully.",
+      ok: true,
+      owner,
+    };
+  } catch (error) {
+    return {
+      message: getActionErrorMessage(error, "Owner could not be created."),
+      ok: false,
+    };
+  }
+}
+
 export async function updateOwnerAction(formData: FormData) {
   await requireSuperadmin();
 
   try {
-    const id = getRequiredFormString(formData, "id");
-    const name = getRequiredFormString(formData, "name");
-    const email = getFormString(formData, "email") || null;
-    const phoneNumber = getRequiredPhoneNumber(formData);
-    const password = getFormString(formData, "password");
-
-    if (password) {
-      await query(
-        `UPDATE users
-         SET name = $1,
-             email = $2,
-             phone_number = $3,
-             password_hash = $4,
-             updated_at = now()
-         WHERE id = $5 AND role = 'owner'`,
-        [name, email, phoneNumber, await hashPassword(password), id],
-      );
-    } else {
-      await query(
-        `UPDATE users
-         SET name = $1,
-             email = $2,
-             phone_number = $3,
-             updated_at = now()
-         WHERE id = $4 AND role = 'owner'`,
-        [name, email, phoneNumber, id],
-      );
-    }
+    await updateOwnerRecord(formData);
   } catch (error) {
     redirectToReturnPath(formData, "/owners", {
       message: getActionErrorMessage(error, "Owner could not be updated."),
@@ -100,6 +122,30 @@ export async function updateOwnerAction(formData: FormData) {
     message: "Owner updated successfully.",
     type: "success",
   });
+}
+
+export async function updateOwnerInlineAction(
+  formData: FormData,
+): Promise<OwnerActionResult> {
+  await requireSuperadmin();
+
+  try {
+    const owner = await updateOwnerRecord(formData);
+
+    revalidateOwnersAndVenues();
+
+    return {
+      affectedVenues: await getVenuesForOwner(owner.id),
+      message: "Owner updated successfully.",
+      ok: true,
+      owner,
+    };
+  } catch (error) {
+    return {
+      message: getActionErrorMessage(error, "Owner could not be updated."),
+      ok: false,
+    };
+  }
 }
 
 export async function createVenueAction(formData: FormData) {
@@ -228,65 +274,10 @@ export async function updateVenueAction(formData: FormData) {
 export async function toggleOwnerActiveAction(formData: FormData) {
   await requireSuperadmin();
 
-  const ownerId = getRequiredFormString(formData, "ownerId");
   const isActive = getRequiredFormString(formData, "isActive") === "true";
-  const selectedVenueIds = formData
-    .getAll("venueIds")
-    .filter((value): value is string => typeof value === "string" && value.length > 0);
 
   try {
-    await transaction(async (client) => {
-      const venues = await client.query<{ id: string }>(
-        `SELECT id
-         FROM venues
-         WHERE assigned_user_id = $1
-         ORDER BY name`,
-        [ownerId],
-      );
-
-      if (!isActive) {
-        await client.query(
-          `UPDATE users
-           SET is_active = false, updated_at = now()
-           WHERE id = $1 AND role = 'owner'`,
-          [ownerId],
-        );
-        await client.query(
-          `UPDATE venues
-           SET is_active = false, updated_at = now()
-           WHERE assigned_user_id = $1`,
-          [ownerId],
-        );
-        await client.query("DELETE FROM sessions WHERE user_id = $1", [
-          ownerId,
-        ]);
-        return;
-      }
-
-      const venueIds =
-        venues.rows.length <= 1
-          ? venues.rows.map((venue) => venue.id)
-          : selectedVenueIds;
-
-      if (venues.rows.length > 1 && venueIds.length === 0) {
-        throw new Error("Select at least one venue to activate this owner.");
-      }
-
-      await client.query(
-        `UPDATE users
-         SET is_active = true, updated_at = now()
-         WHERE id = $1 AND role = 'owner'`,
-        [ownerId],
-      );
-      if (venues.rows.length > 0) {
-        await client.query(
-          `UPDATE venues
-           SET is_active = (id = ANY($2::uuid[])), updated_at = now()
-           WHERE assigned_user_id = $1`,
-          [ownerId, venueIds],
-        );
-      }
-    });
+    await toggleOwnerActiveRecord(formData);
   } catch (error) {
     redirectToReturnPath(formData, "/owners", {
       message: getActionErrorMessage(
@@ -306,6 +297,38 @@ export async function toggleOwnerActiveAction(formData: FormData) {
       : "Owner deactivated successfully.",
     type: "success",
   });
+}
+
+export async function toggleOwnerActiveInlineAction(
+  formData: FormData,
+): Promise<OwnerActionResult> {
+  await requireSuperadmin();
+
+  const isActive = getRequiredFormString(formData, "isActive") === "true";
+
+  try {
+    const owner = await toggleOwnerActiveRecord(formData);
+
+    revalidateOwnersAndVenues();
+    revalidatePath("/calendar");
+
+    return {
+      affectedVenues: await getVenuesForOwner(owner.id),
+      message: isActive
+        ? "Owner activated successfully."
+        : "Owner deactivated successfully.",
+      ok: true,
+      owner,
+    };
+  } catch (error) {
+    return {
+      message: getActionErrorMessage(
+        error,
+        "Owner status could not be updated.",
+      ),
+      ok: false,
+    };
+  }
 }
 
 export async function toggleVenueActiveAction(formData: FormData) {
@@ -386,4 +409,190 @@ export async function toggleVenueActiveAction(formData: FormData) {
       : "Venue deactivated successfully.",
     type: "success",
   });
+}
+
+async function createOwnerRecord(formData: FormData) {
+  const name = getRequiredFormString(formData, "name");
+  const email = getFormString(formData, "email") || null;
+  const phoneNumber = getRequiredPhoneNumber(formData);
+  const password = getRequiredFormString(formData, "password");
+  const result = await query<OwnerRow>(
+    `INSERT INTO users (name, email, phone_number, password_hash, role)
+     VALUES ($1, $2, $3, $4, 'owner')
+     RETURNING id, name, email, phone_number, role, is_active`,
+    [name, email, phoneNumber, await hashPassword(password)],
+  );
+  const owner = result.rows[0];
+
+  if (!owner) {
+    throw new Error("Owner could not be created.");
+  }
+
+  return mapOwner(owner);
+}
+
+async function updateOwnerRecord(formData: FormData) {
+  const id = getRequiredFormString(formData, "id");
+  const name = getRequiredFormString(formData, "name");
+  const email = getFormString(formData, "email") || null;
+  const phoneNumber = getRequiredPhoneNumber(formData);
+  const password = getFormString(formData, "password");
+  const result = password
+    ? await query<OwnerRow>(
+        `UPDATE users
+         SET name = $1,
+             email = $2,
+             phone_number = $3,
+             password_hash = $4,
+             updated_at = now()
+         WHERE id = $5 AND role = 'owner'
+         RETURNING id, name, email, phone_number, role, is_active`,
+        [name, email, phoneNumber, await hashPassword(password), id],
+      )
+    : await query<OwnerRow>(
+        `UPDATE users
+         SET name = $1,
+             email = $2,
+             phone_number = $3,
+             updated_at = now()
+         WHERE id = $4 AND role = 'owner'
+         RETURNING id, name, email, phone_number, role, is_active`,
+        [name, email, phoneNumber, id],
+      );
+  const owner = result.rows[0];
+
+  if (!owner) {
+    throw new Error("Owner was not found.");
+  }
+
+  return mapOwner(owner);
+}
+
+async function toggleOwnerActiveRecord(formData: FormData) {
+  const ownerId = getRequiredFormString(formData, "ownerId");
+  const isActive = getRequiredFormString(formData, "isActive") === "true";
+  const selectedVenueIds = formData
+    .getAll("venueIds")
+    .filter(
+      (value): value is string => typeof value === "string" && value.length > 0,
+    );
+
+  const owner = await transaction(async (client) => {
+    const venues = await client.query<{ id: string }>(
+      `SELECT id
+       FROM venues
+       WHERE assigned_user_id = $1
+       ORDER BY name`,
+      [ownerId],
+    );
+
+    if (!isActive) {
+      const result = await client.query<OwnerRow>(
+        `UPDATE users
+         SET is_active = false, updated_at = now()
+         WHERE id = $1 AND role = 'owner'
+         RETURNING id, name, email, phone_number, role, is_active`,
+        [ownerId],
+      );
+      await client.query(
+        `UPDATE venues
+         SET is_active = false, updated_at = now()
+         WHERE assigned_user_id = $1`,
+        [ownerId],
+      );
+      await client.query("DELETE FROM sessions WHERE user_id = $1", [
+        ownerId,
+      ]);
+      return result.rows[0] ? mapOwner(result.rows[0]) : null;
+    }
+
+    const venueIds =
+      venues.rows.length <= 1
+        ? venues.rows.map((venue) => venue.id)
+        : selectedVenueIds;
+
+    if (venues.rows.length > 1 && venueIds.length === 0) {
+      throw new Error("Select at least one venue to activate this owner.");
+    }
+
+    const result = await client.query<OwnerRow>(
+      `UPDATE users
+       SET is_active = true, updated_at = now()
+       WHERE id = $1 AND role = 'owner'
+       RETURNING id, name, email, phone_number, role, is_active`,
+      [ownerId],
+    );
+
+    if (venues.rows.length > 0) {
+      await client.query(
+        `UPDATE venues
+         SET is_active = (id = ANY($2::uuid[])), updated_at = now()
+         WHERE assigned_user_id = $1`,
+        [ownerId, venueIds],
+      );
+    }
+
+    return result.rows[0] ? mapOwner(result.rows[0]) : null;
+  });
+
+  if (!owner) {
+    throw new Error("Owner was not found.");
+  }
+
+  return owner;
+}
+
+async function getVenuesForOwner(ownerId: string) {
+  const result = await query<VenueRow>(
+    `SELECT
+       v.id,
+       v.name,
+       v.description,
+       v.type_id,
+       vt.name AS type_name,
+       v.assigned_user_id,
+       u.name AS assigned_user_name,
+       u.role AS assigned_user_role,
+       u.is_active AS assigned_user_is_active,
+       v.is_active
+     FROM venues v
+     JOIN venue_types vt ON vt.id = v.type_id
+     JOIN users u ON u.id = v.assigned_user_id
+     WHERE v.assigned_user_id = $1
+     ORDER BY v.name`,
+    [ownerId],
+  );
+
+  return result.rows.map(mapVenue);
+}
+
+function mapOwner(row: OwnerRow): AppUser {
+  return {
+    email: row.email,
+    id: row.id,
+    isActive: row.is_active,
+    name: row.name,
+    phoneNumber: row.phone_number,
+    role: row.role,
+  };
+}
+
+function mapVenue(row: VenueRow): Venue {
+  return {
+    assignedUserId: row.assigned_user_id,
+    assignedUserIsActive: row.assigned_user_is_active,
+    assignedUserName: row.assigned_user_name,
+    assignedUserRole: row.assigned_user_role,
+    description: row.description,
+    id: row.id,
+    isActive: row.is_active,
+    name: row.name,
+    typeId: row.type_id,
+    typeName: row.type_name,
+  };
+}
+
+function revalidateOwnersAndVenues() {
+  revalidatePath("/owners");
+  revalidatePath("/venues");
 }

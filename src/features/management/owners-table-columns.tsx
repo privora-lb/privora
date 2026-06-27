@@ -25,8 +25,9 @@ const cmsTablePasswordInputClassName =
 type UseOwnerColumnsParams = {
   clearFieldError: (rowId: string, field: OwnerValidationField) => void;
   fieldErrors: Record<string, OwnerValidationErrors>;
-  getOwnerToggleFormId: (id: string) => string;
+  onToggleOwnerActive: (row: OwnerDraft) => void;
   ownerVenuesByOwnerId: Map<string, Venue[]>;
+  pendingToggleOwnerId: string | null;
   setActivatingOwner: Dispatch<SetStateAction<AppUser | null>>;
   updateDraft: (id: string, patch: Partial<OwnerDraft>) => void;
 };
@@ -34,8 +35,9 @@ type UseOwnerColumnsParams = {
 export function useOwnerColumns({
   clearFieldError,
   fieldErrors,
-  getOwnerToggleFormId,
+  onToggleOwnerActive,
   ownerVenuesByOwnerId,
+  pendingToggleOwnerId,
   setActivatingOwner,
   updateDraft,
 }: UseOwnerColumnsParams) {
@@ -164,6 +166,8 @@ export function useOwnerColumns({
               <ActiveSwitch
                 checked={row.isActive}
                 className="mx-auto"
+                disabled={pendingToggleOwnerId === row.id}
+                isLoading={pendingToggleOwnerId === row.id}
                 label={`Activate ${row.name}`}
                 onClick={() => setActivatingOwner(row)}
                 type="button"
@@ -175,13 +179,15 @@ export function useOwnerColumns({
             <ActiveSwitch
               checked={row.isActive}
               className="mx-auto"
-              form={getOwnerToggleFormId(row.id)}
+              disabled={pendingToggleOwnerId === row.id}
+              isLoading={pendingToggleOwnerId === row.id}
               label={
                 row.isActive
                   ? `Deactivate ${row.name}`
                   : `Activate ${row.name}`
               }
-              type="submit"
+              onClick={() => onToggleOwnerActive(row)}
+              type="button"
             />
           );
         },
@@ -224,8 +230,9 @@ export function useOwnerColumns({
     [
       clearFieldError,
       fieldErrors,
-      getOwnerToggleFormId,
+      onToggleOwnerActive,
       ownerVenuesByOwnerId,
+      pendingToggleOwnerId,
       setActivatingOwner,
       updateDraft,
     ],

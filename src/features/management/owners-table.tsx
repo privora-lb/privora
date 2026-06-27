@@ -1,6 +1,6 @@
 "use client";
 
-import { Save, X } from "lucide-react";
+import { Loader2, Save, X } from "lucide-react";
 import {
   useCallback,
   useMemo,
@@ -9,9 +9,9 @@ import {
 } from "react";
 
 import {
-  createOwnerAction,
-  toggleOwnerActiveAction,
-  updateOwnerAction,
+  createOwnerInlineAction,
+  toggleOwnerActiveInlineAction,
+  updateOwnerInlineAction,
 } from "@/app/(app)/management/actions";
 import { CmsDataTable } from "@/components/cms/CmsDataTable";
 import { CmsToastStack } from "@/components/cms/CmsToastStack";
@@ -46,6 +46,11 @@ export function OwnersTable({
   const [activatingOwner, setActivatingOwner] = useState<AppUser | null>(null);
   const [activeFilter, setActiveFilter] =
     useState<ActiveStatusFilterValue>("all");
+  const [ownerRows, setOwnerRows] = useState<AppUser[]>(owners);
+  const [pendingSaveId, setPendingSaveId] = useState<string | null>(null);
+  const [pendingToggleOwnerId, setPendingToggleOwnerId] =
+    useState<string | null>(null);
+  const [venueRows, setVenueRows] = useState<Venue[]>(venues);
   const [fieldErrors, setFieldErrors] = useState<
     Record<string, OwnerValidationErrors>
   >({});
@@ -57,7 +62,7 @@ export function OwnersTable({
   const ownerVenuesByOwnerId = useMemo(() => {
     const grouped = new Map<string, Venue[]>();
 
-    venues.forEach((venue) => {
+    venueRows.forEach((venue) => {
       grouped.set(venue.assignedUserId, [
         ...(grouped.get(venue.assignedUserId) ?? []),
         venue,
@@ -65,15 +70,15 @@ export function OwnersTable({
     });
 
     return grouped;
-  }, [venues]);
+  }, [venueRows]);
   const rows = useMemo(
     () => [
       ...(newOwner ? [newOwner] : []),
-      ...owners.map(
+      ...ownerRows.map(
         (owner) => drafts[owner.id] ?? { ...owner, password: "" },
       ),
     ],
-    [drafts, newOwner, owners],
+    [drafts, newOwner, ownerRows],
   );
   const filteredRows = useMemo(
     () =>
@@ -122,21 +127,64 @@ export function OwnersTable({
         ...current,
         [id]: {
           ...(current[id] ?? {
-            ...owners.find((owner) => owner.id === id)!,
+            ...ownerRows.find((owner) => owner.id === id)!,
             password: "",
           }),
           ...patch,
         },
       }));
     },
-    [owners],
+    [ownerRows],
+  );
+
+  const applyOwnerMutation = useCallback(
+    (owner: AppUser, affectedVenues?: Venue[]) => {
+      setOwnerRows((current) => {
+        const exists = current.some((item) => item.id === owner.id);
+        const next = exists
+          ? current.map((item) => (item.id === owner.id ? owner : item))
+          : [owner, ...current];
+
+        return [...next].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      setDrafts((current) => {
+        const next = { ...current };
+        delete next[newOwnerId];
+        next[owner.id] = { ...owner, password: "" };
+        return next;
+      });
+      setVenueRows((current) => {
+        if (affectedVenues?.length) {
+          const affectedById = new Map(
+            affectedVenues.map((venue) => [venue.id, venue]),
+          );
+
+          return current.map((venue) => affectedById.get(venue.id) ?? venue);
+        }
+
+        return current.map((venue) =>
+          venue.assignedUserId === owner.id
+            ? {
+                ...venue,
+                assignedUserIsActive: owner.isActive,
+                assignedUserName: owner.name,
+              }
+            : venue,
+        );
+      });
+    },
+    [],
   );
 
   const saveOwner = useCallback(
-    (row: OwnerDraft, event: MouseEvent<HTMLButtonElement>) => {
+    async (row: OwnerDraft, event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
 
-      const errors = validateOwnerDraft(row, owners);
+      if (pendingSaveId) {
+        return;
+      }
+
+      const errors = validateOwnerDraft(row, ownerRows);
 
       if (Object.keys(errors).length > 0) {
         setFieldErrors((current) => ({ ...current, [row.id]: errors }));
@@ -154,19 +202,73 @@ export function OwnersTable({
         return next;
       });
 
-      const ownerForm = document.getElementById(getOwnerFormId(row.id));
-      if (ownerForm instanceof HTMLFormElement) {
-        ownerForm.requestSubmit();
+      const formData = getOwnerFormData(row);
+      setPendingSaveId(row.id);
+
+      try {
+        const result = row.isNew
+          ? await createOwnerInlineAction(formData)
+          : await updateOwnerInlineAction(formData);
+
+        if (!result.ok) {
+          pushToast("error", result.message);
+          return;
+        }
+
+        applyOwnerMutation(result.owner, result.affectedVenues);
+        if (row.isNew) {
+          setNewOwner(null);
+        }
+        pushToast("success", result.message);
+      } finally {
+        setPendingSaveId(null);
       }
     },
-    [owners, pushToast],
+    [applyOwnerMutation, ownerRows, pendingSaveId, pushToast],
+  );
+
+  const toggleOwnerActive = useCallback(
+    async (
+      row: AppUser,
+      nextIsActive = !row.isActive,
+      venueIds: string[] = [],
+    ) => {
+      if (pendingToggleOwnerId) {
+        return;
+      }
+
+      const formData = new FormData();
+      formData.set("ownerId", row.id);
+      formData.set("isActive", String(nextIsActive));
+      venueIds.forEach((venueId) => formData.append("venueIds", venueId));
+      setPendingToggleOwnerId(row.id);
+
+      try {
+        const result = await toggleOwnerActiveInlineAction(formData);
+
+        if (!result.ok) {
+          pushToast("error", result.message);
+          return;
+        }
+
+        applyOwnerMutation(result.owner, result.affectedVenues);
+        setActivatingOwner((current) =>
+          current?.id === result.owner.id ? null : current,
+        );
+        pushToast("success", result.message);
+      } finally {
+        setPendingToggleOwnerId(null);
+      }
+    },
+    [applyOwnerMutation, pendingToggleOwnerId, pushToast],
   );
 
   const columns = useOwnerColumns({
     clearFieldError,
     fieldErrors,
-    getOwnerToggleFormId,
+    onToggleOwnerActive: toggleOwnerActive,
     ownerVenuesByOwnerId,
+    pendingToggleOwnerId,
     setActivatingOwner,
     updateDraft,
   });
@@ -189,10 +291,13 @@ export function OwnersTable({
   return (
     <>
       <CmsToastStack onDismiss={dismissToast} toasts={toasts} />
-      <HiddenOwnerForms rows={rows} />
       {activatingOwner ? (
         <OwnerActivationModal
+          isSubmitting={pendingToggleOwnerId === activatingOwner.id}
           onClose={() => setActivatingOwner(null)}
+          onSubmit={(venueIds) =>
+            toggleOwnerActive(activatingOwner, true, venueIds)
+          }
           owner={activatingOwner}
           venues={ownerVenuesByOwnerId.get(activatingOwner.id) ?? []}
         />
@@ -201,16 +306,26 @@ export function OwnersTable({
         actions={[
           {
             label: "Save owner",
-            render: (row) => (
-              <CmsDataTableIconButton
-                className="h-7 w-7 rounded-md text-[#1f4f8f]"
-                label={row.isNew ? "Create owner" : "Save owner"}
-                onClick={(event) => saveOwner(row, event)}
-                type="button"
-              >
-                <Save size={14} aria-hidden="true" />
-              </CmsDataTableIconButton>
-            ),
+            render: (row) => {
+              const isSaving = pendingSaveId === row.id;
+              const Icon = isSaving ? Loader2 : Save;
+
+              return (
+                <CmsDataTableIconButton
+                  className="h-7 w-7 rounded-md text-[#1f4f8f]"
+                  disabled={Boolean(pendingSaveId)}
+                  label={row.isNew ? "Create owner" : "Save owner"}
+                  onClick={(event) => saveOwner(row, event)}
+                  type="button"
+                >
+                  <Icon
+                    className={isSaving ? "animate-spin" : undefined}
+                    size={14}
+                    aria-hidden="true"
+                  />
+                </CmsDataTableIconButton>
+              );
+            },
           },
           {
             label: "Cancel new owner",
@@ -218,6 +333,7 @@ export function OwnersTable({
             render: () => (
               <CmsDataTableIconButton
                 className="h-7 w-7 rounded-md text-rose-700 hover:text-rose-800"
+                disabled={pendingSaveId === newOwnerId}
                 label="Cancel new owner"
                 onClick={() => setNewOwner(null)}
                 type="button"
@@ -258,43 +374,16 @@ export function OwnersTable({
   );
 }
 
-function HiddenOwnerForms({ rows }: { rows: OwnerDraft[] }) {
-  return (
-    <div className="hidden">
-      {rows.map((row) => (
-        <div key={row.id}>
-          <form
-            action={row.isNew ? createOwnerAction : updateOwnerAction}
-            id={getOwnerFormId(row.id)}
-          >
-            {!row.isNew ? <input name="id" readOnly value={row.id} /> : null}
-            <input name="returnTo" readOnly value="/owners" />
-            <input name="name" readOnly value={row.name} />
-            <input name="phoneNumber" readOnly value={row.phoneNumber} />
-            <input name="email" readOnly value={row.email ?? ""} />
-            <input name="password" readOnly value={row.password} />
-          </form>
-          {!row.isNew ? (
-            <form action={toggleOwnerActiveAction} id={getOwnerToggleFormId(row.id)}>
-              <input name="returnTo" readOnly value="/owners" />
-              <input name="ownerId" readOnly value={row.id} />
-              <input
-                name="isActive"
-                readOnly
-                value={row.isActive ? "false" : "true"}
-              />
-            </form>
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
-}
+function getOwnerFormData(row: OwnerDraft) {
+  const formData = new FormData();
 
-function getOwnerFormId(id: string) {
-  return `owner-form-${id}`;
-}
+  if (!row.isNew) {
+    formData.set("id", row.id);
+  }
+  formData.set("name", row.name);
+  formData.set("phoneNumber", row.phoneNumber);
+  formData.set("email", row.email ?? "");
+  formData.set("password", row.password);
 
-function getOwnerToggleFormId(id: string) {
-  return `owner-toggle-form-${id}`;
+  return formData;
 }
