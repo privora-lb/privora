@@ -1,5 +1,3 @@
-BEGIN;
-
 TRUNCATE change_requests, calendar_entries, venues, venue_types, sessions, users RESTART IDENTITY CASCADE;
 
 INSERT INTO users (id, name, email, phone_number, password_hash, role) VALUES
@@ -162,5 +160,3 @@ INSERT INTO change_requests (id, venue_id, reservation_date, requested_status, r
   ('482338d9-0477-49df-87fc-2a7aff5ef157', '4cd3f0ab-b1b1-4905-b75a-f77f91808201', CURRENT_DATE + 30, 'available', 'Pending request 28 for Bassel Creative Studio', 'booked', 'Previous booked note', 'e5b0b7e0-109f-4171-a0ce-3462fa5f5a97', '437f45b7-1226-48f7-9add-3b97b087b8bb', 'pending', NULL, NULL, '', now() - interval '27 days', now()),
   ('624c6a1a-c22e-43c7-9e01-aaff1d7c8992', 'd6cbd4c9-15cf-410a-9f05-2ebe8338ac05', CURRENT_DATE + 31, 'booked', 'Historical request 29 for Carla Private Lounge', NULL, NULL, 'e5b0b7e0-109f-4171-a0ce-3462fa5f5a97', 'd12037c8-803a-4168-a92e-77c392c41e77', 'approved', 'd12037c8-803a-4168-a92e-77c392c41e77', now() - interval '28 hours', 'approved after owner review', now() - interval '28 days', now()),
   ('72897c8f-4e98-4580-beaa-fa016b4939c7', '10fd3042-ff41-4631-9812-e434edead7a7', CURRENT_DATE + 32, 'available', 'Historical request 30 for Maya Garden Pool', 'booked', 'Previous booked note', 'e5b0b7e0-109f-4171-a0ce-3462fa5f5a97', 'fcf6a6fa-64a8-47d6-863f-5e96a8bc050a', 'rejected', 'fcf6a6fa-64a8-47d6-863f-5e96a8bc050a', now() - interval '29 hours', 'rejected after owner review', now() - interval '29 days', now());
-
-COMMIT;
