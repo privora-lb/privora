@@ -1,10 +1,8 @@
 import {
   CalendarCheck,
-  Check,
   Clock3,
   LockKeyhole,
   Send,
-  X,
 } from "lucide-react";
 
 import {
@@ -13,8 +11,12 @@ import {
   saveCalendarEntryAction,
 } from "@/app/(app)/calendar/actions";
 import {
+  CalendarDayFields,
+  CalendarSubmitButton,
+  DecisionSubmitButton,
+} from "@/features/calendar/day-panel-form-fields";
+import {
   FormHeader,
-  StatusChoiceGroup,
   StatusPill,
   textareaClassName,
 } from "@/features/calendar/day-panel-controls";
@@ -206,24 +208,8 @@ function PendingRequestBox({
             placeholder="Optional decision note"
           />
           <div className="grid grid-cols-1 gap-2 min-[390px]:grid-cols-2">
-            <button
-              className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl bg-[#007c92] px-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(0,124,146,0.18)] transition hover:bg-[#00677a]"
-              name="decision"
-              type="submit"
-              value="approved"
-            >
-              <Check size={16} />
-              Approve
-            </button>
-            <button
-              className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl bg-rose-600 px-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(225,29,72,0.16)] transition hover:bg-rose-700"
-              name="decision"
-              type="submit"
-              value="rejected"
-            >
-              <X size={16} />
-              Reject
-            </button>
+            <DecisionSubmitButton decision="approved" />
+            <DecisionSubmitButton decision="rejected" />
           </div>
         </form>
       ) : null}
@@ -257,27 +243,15 @@ function DirectEditForm({
         title="Manage day"
       />
 
-      <StatusChoiceGroup defaultStatus={entry?.status ?? "available"} />
+      <CalendarDayFields
+        defaultNote={entry?.note ?? ""}
+        defaultStatus={entry?.status ?? "available"}
+        key={`${venueId}:${date}:${entry?.status ?? "available"}:${entry?.note ?? ""}`}
+        noteLabel="Note"
+        notePlaceholder="Add operational context for this date"
+      />
 
-      <label className="flex flex-1 flex-col gap-2">
-        <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-          Note
-        </span>
-        <textarea
-          className={textareaClassName}
-          defaultValue={entry?.note ?? ""}
-          name="note"
-          placeholder="Add operational context for this date"
-        />
-      </label>
-
-      <button
-        className="mt-auto inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#007c92] px-4 text-sm font-black text-white shadow-[0_16px_32px_rgba(0,124,146,0.2)] transition hover:bg-[#00677a]"
-        type="submit"
-      >
-        <Check size={17} aria-hidden="true" />
-        Save day
-      </button>
+      <CalendarSubmitButton mode="save" />
     </form>
   );
 }
@@ -308,27 +282,15 @@ function RequestChangeForm({
         title="Request change"
       />
 
-      <StatusChoiceGroup defaultStatus={entry?.status ?? "booked"} />
+      <CalendarDayFields
+        defaultNote={entry?.note ?? ""}
+        defaultStatus={entry?.status ?? "available"}
+        key={`${venueId}:${date}:${entry?.status ?? "available"}:${entry?.note ?? ""}`}
+        noteLabel="Request note"
+        notePlaceholder="Explain the requested change"
+      />
 
-      <label className="flex flex-1 flex-col gap-2">
-        <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-          Request note
-        </span>
-        <textarea
-          className={textareaClassName}
-          defaultValue={entry?.note ?? ""}
-          name="note"
-          placeholder="Explain the requested change"
-        />
-      </label>
-
-      <button
-        className="mt-auto inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#007c92] px-4 text-sm font-black text-white shadow-[0_16px_32px_rgba(0,124,146,0.2)] transition hover:bg-[#00677a]"
-        type="submit"
-      >
-        <Send size={17} aria-hidden="true" />
-        Send request
-      </button>
+      <CalendarSubmitButton mode="request" />
     </form>
   );
 }
