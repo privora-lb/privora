@@ -1,25 +1,13 @@
-import { getDatabase, MissingDatabaseConnectionError } from "@netlify/database";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
-const connectionString =
-  process.env.DATABASE_URL ?? process.env.NETLIFY_DATABASE_URL;
+const connectionString = process.env.DATABASE_URL;
 
 function createPool() {
-  if (connectionString) {
-    return new Pool({ connectionString });
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is required.");
   }
 
-  try {
-    return getDatabase().pool as unknown as Pool;
-  } catch (error) {
-    if (error instanceof MissingDatabaseConnectionError) {
-      throw new Error(
-        "DATABASE_URL, NETLIFY_DATABASE_URL, or NETLIFY_DB_URL is required.",
-      );
-    }
-
-    throw error;
-  }
+  return new Pool({ connectionString });
 }
 
 declare global {

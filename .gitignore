@@ -8,3 +8,4 @@ dist
 coverage
 *.docx
 Screenshot*.png
+.vercel
