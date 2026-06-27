@@ -142,8 +142,8 @@ function ReadOnlyNotice() {
         <LockKeyhole size={16} aria-hidden="true" />
       </span>
       <span>
-        Previous months are display only. Current and upcoming months can be
-        updated from this panel.
+        Past dates are display only. Today and upcoming dates can be updated
+        from this panel.
       </span>
     </div>
   );

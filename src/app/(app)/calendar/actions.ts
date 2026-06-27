@@ -29,8 +29,8 @@ function parseStatus(value: string): CalendarStatus {
   throw new Error("Invalid calendar status.");
 }
 
-function isPastMonthDate(value: Date | string) {
-  return normalizeDateKey(value).slice(0, 7) < todayKey().slice(0, 7);
+function isPastDate(value: Date | string) {
+  return normalizeDateKey(value) < todayKey();
 }
 
 export async function saveCalendarEntryAction(formData: FormData) {
@@ -38,9 +38,9 @@ export async function saveCalendarEntryAction(formData: FormData) {
   const venueId = getRequiredFormString(formData, "venueId");
   const date = getRequiredFormString(formData, "date");
 
-  if (isPastMonthDate(date)) {
+  if (isPastDate(date)) {
     redirectToReturnPath(formData, "/calendar", {
-      message: "Previous months are display only.",
+      message: "Past dates are display only.",
       type: "error",
     });
   }
@@ -103,9 +103,9 @@ export async function requestCalendarChangeAction(formData: FormData) {
   const venueId = getRequiredFormString(formData, "venueId");
   const date = getRequiredFormString(formData, "date");
 
-  if (isPastMonthDate(date)) {
+  if (isPastDate(date)) {
     redirectToReturnPath(formData, "/calendar", {
-      message: "Previous months are display only.",
+      message: "Past dates are display only.",
       type: "error",
     });
   }
@@ -244,7 +244,7 @@ export async function decideChangeRequestAction(formData: FormData) {
         throw new Error("This request is no longer available.");
       }
 
-      if (isPastMonthDate(request.reservation_date)) {
+      if (isPastDate(request.reservation_date)) {
         throw new Error("This request is no longer available.");
       }
 

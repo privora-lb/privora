@@ -106,6 +106,7 @@ export default async function CalendarPage({
       <CalendarWorkspace
         canManage={userCanManageVenueDirectly(user, selectedVenue)}
         canRequest={userCanRequestVenueChange(user, selectedVenue)}
+        currentDateKey={currentDateKey}
         currentMonthKey={currentMonthKey}
         days={days}
         entries={entries}

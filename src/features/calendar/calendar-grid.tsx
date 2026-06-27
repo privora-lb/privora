@@ -19,6 +19,7 @@ export type CalendarGridDay = {
 };
 
 export function CalendarGrid({
+  currentDateKey,
   days,
   isReadOnlyMonth,
   onSelectDate,
@@ -26,6 +27,7 @@ export function CalendarGrid({
   entriesByDate,
   requestsByDate,
 }: {
+  currentDateKey: string;
   days: CalendarGridDay[];
   isReadOnlyMonth?: boolean;
   onSelectDate: (dateKey: string) => void;
@@ -55,6 +57,7 @@ export function CalendarGrid({
             const currentStatus = entry?.status ?? "available";
             const statusStyle = calendarStatusColors[currentStatus];
             const currentNote = entry?.note || "";
+            const isReadOnlyDay = isReadOnlyMonth || day.dateKey < currentDateKey;
 
             return (
               <button
@@ -108,7 +111,7 @@ export function CalendarGrid({
                       <span className="text-center text-[11px] font-bold text-slate-500">
                         No note added
                       </span>
-                    ) : !request && isReadOnlyMonth ? (
+                    ) : !request && isReadOnlyDay ? (
                       <span className="text-center text-[11px] font-black text-[#337946]">
                         Available
                       </span>

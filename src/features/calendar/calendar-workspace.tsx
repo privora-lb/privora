@@ -31,6 +31,7 @@ import type {
 export function CalendarWorkspace({
   canManage,
   canRequest,
+  currentDateKey,
   currentMonthKey,
   days,
   entries,
@@ -45,6 +46,7 @@ export function CalendarWorkspace({
 }: {
   canManage: boolean;
   canRequest: boolean;
+  currentDateKey: string;
   currentMonthKey: string;
   days: CalendarGridDay[];
   entries: CalendarEntry[];
@@ -76,9 +78,9 @@ export function CalendarWorkspace({
     `&date=${selectedMobileDate}`;
   const currentMonth = parseDateKey(`${monthKey}-01`);
   const isSelectedDateReadOnly = selectedDate
-    ? selectedDate.slice(0, 7) < currentMonthKey
+    ? selectedDate < currentDateKey
     : isReadOnlyMonth;
-  const isMobileDateReadOnly = selectedMobileDate.slice(0, 7) < currentMonthKey;
+  const isMobileDateReadOnly = selectedMobileDate < currentDateKey;
 
   useEffect(() => {
     function syncSelectedDateFromUrl() {
@@ -185,6 +187,7 @@ export function CalendarWorkspace({
       <div className="px-5 py-4 max-[760px]:px-3">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] max-[760px]:hidden">
           <CalendarGrid
+            currentDateKey={currentDateKey}
             days={days}
             entriesByDate={entriesByDate}
             isReadOnlyMonth={isReadOnlyMonth}
