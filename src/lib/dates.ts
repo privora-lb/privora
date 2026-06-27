@@ -6,6 +6,8 @@ export type CalendarDay = {
   isToday: boolean;
 };
 
+const appTimeZone = process.env.NEXT_PUBLIC_APP_TIME_ZONE ?? "Asia/Beirut";
+
 export function toDateKey(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -15,7 +17,17 @@ export function toDateKey(date: Date) {
 }
 
 export function todayKey() {
-  return toDateKey(new Date());
+  const parts = new Intl.DateTimeFormat("en", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: appTimeZone,
+    year: "numeric",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  const day = parts.find((part) => part.type === "day")?.value ?? "01";
+
+  return `${year}-${month}-${day}`;
 }
 
 export function normalizeDateKey(value: unknown) {
@@ -36,7 +48,7 @@ export function parseMonthKey(value?: string | null) {
     }
   }
 
-  return toDateKey(new Date()).slice(0, 7);
+  return todayKey().slice(0, 7);
 }
 
 export function addMonths(monthKey: string, amount: number) {

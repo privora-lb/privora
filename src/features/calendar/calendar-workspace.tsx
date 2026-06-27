@@ -198,6 +198,7 @@ export function CalendarWorkspace({
           <DayPanel
             canManage={canManage}
             canRequest={canRequest}
+            currentDateKey={currentDateKey}
             date={selectedDate}
             entry={selectedDate ? entriesByDate.get(selectedDate) : undefined}
             isReadOnly={isSelectedDateReadOnly}
@@ -224,6 +225,7 @@ export function CalendarWorkspace({
           <DayPanel
             canManage={canManage}
             canRequest={canRequest}
+            currentDateKey={currentDateKey}
             date={selectedMobileDate}
             entry={entriesByDate.get(selectedMobileDate)}
             isReadOnly={isMobileDateReadOnly}

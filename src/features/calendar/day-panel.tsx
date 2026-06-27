@@ -36,6 +36,7 @@ export function DayPanel({
   date,
   canManage,
   canRequest,
+  currentDateKey,
   entry,
   isReadOnly,
   pendingRequest,
@@ -45,6 +46,7 @@ export function DayPanel({
   venue: Venue;
   canManage: boolean;
   canRequest: boolean;
+  currentDateKey: string;
   date?: string;
   entry?: CalendarEntry;
   isReadOnly?: boolean;
@@ -73,8 +75,9 @@ export function DayPanel({
     );
   }
 
-  const canManageDay = !isReadOnly && canManage;
-  const canRequestDay = !isReadOnly && canRequest;
+  const isReadOnlyDay = Boolean(isReadOnly || date < currentDateKey);
+  const canManageDay = !isReadOnlyDay && canManage;
+  const canRequestDay = !isReadOnlyDay && canRequest;
   const currentStatus = entry?.status ?? "available";
 
   return (
@@ -102,14 +105,14 @@ export function DayPanel({
       <div className="flex flex-1 flex-col gap-5 p-5 pb-4">
         {pendingRequest ? (
           <PendingRequestBox
-            canDecide={!isReadOnly && user.id === venue.assignedUserId}
+            canDecide={!isReadOnlyDay && user.id === venue.assignedUserId}
             entry={entry}
             pendingRequest={pendingRequest}
             returnTo={returnTo}
           />
         ) : null}
 
-        {isReadOnly ? <ReadOnlyNotice /> : null}
+        {isReadOnlyDay ? <ReadOnlyNotice /> : null}
 
         {canManageDay ? (
           <DirectEditForm
