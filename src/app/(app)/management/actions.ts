@@ -10,6 +10,7 @@ import {
   getRequiredFormString,
   redirectToReturnPath,
 } from "@/lib/forms";
+import { getAllVenues } from "@/lib/data/venues";
 import { hashPassword } from "@/lib/password";
 import type { AppUser, Venue } from "@/lib/types";
 
@@ -41,6 +42,17 @@ type OwnerActionResult =
       message: string;
       ok: true;
       owner: AppUser;
+    }
+  | {
+      message: string;
+      ok: false;
+    };
+
+type VenueActionResult =
+  | {
+      message: string;
+      ok: true;
+      venues: Venue[];
     }
   | {
       message: string;
@@ -152,25 +164,7 @@ export async function createVenueAction(formData: FormData) {
   const user = await requireSuperadmin();
 
   try {
-    const name = getRequiredFormString(formData, "name");
-    const typeId = getRequiredFormString(formData, "typeId");
-    const assignedUserId = getRequiredFormString(formData, "assignedUserId");
-    const description = getFormString(formData, "description");
-
-    await transaction(async (client) => {
-      await client.query(
-        `INSERT INTO venues
-          (name, type_id, assigned_user_id, description, created_by_id)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [name, typeId, assignedUserId, description, user.id],
-      );
-      await client.query(
-        `UPDATE users
-         SET is_active = true, updated_at = now()
-         WHERE id = $1 AND role = 'owner'`,
-        [assignedUserId],
-      );
-    });
+    await createVenueRecord(formData, user.id);
   } catch (error) {
     redirectToReturnPath(formData, "/venues", {
       message: getActionErrorMessage(error, "Venue could not be created."),
@@ -186,76 +180,35 @@ export async function createVenueAction(formData: FormData) {
   });
 }
 
+export async function createVenueInlineAction(
+  formData: FormData,
+): Promise<VenueActionResult> {
+  const user = await requireSuperadmin();
+
+  try {
+    await createVenueRecord(formData, user.id);
+
+    revalidatePath("/venues");
+    revalidatePath("/calendar");
+
+    return {
+      message: "Venue created successfully.",
+      ok: true,
+      venues: await getAllVenues(),
+    };
+  } catch (error) {
+    return {
+      message: getActionErrorMessage(error, "Venue could not be created."),
+      ok: false,
+    };
+  }
+}
+
 export async function updateVenueAction(formData: FormData) {
   await requireSuperadmin();
 
   try {
-    const id = getRequiredFormString(formData, "id");
-    const name = getRequiredFormString(formData, "name");
-    const typeId = getRequiredFormString(formData, "typeId");
-    const assignedUserId = getRequiredFormString(formData, "assignedUserId");
-    const description = getFormString(formData, "description");
-
-    await transaction(async (client) => {
-      const currentVenue = await client.query<{
-        assigned_user_id: string;
-        is_active: boolean;
-      }>(
-        `SELECT assigned_user_id, is_active
-         FROM venues
-         WHERE id = $1
-         LIMIT 1`,
-        [id],
-      );
-      const current = currentVenue.rows[0];
-
-      await client.query(
-        `UPDATE venues
-         SET name = $1,
-             type_id = $2,
-             assigned_user_id = $3,
-             description = $4,
-             updated_at = now()
-         WHERE id = $5`,
-        [name, typeId, assignedUserId, description, id],
-      );
-
-      if (!current?.is_active) {
-        return;
-      }
-
-      await client.query(
-        `UPDATE users
-         SET is_active = true, updated_at = now()
-         WHERE id = $1 AND role = 'owner'`,
-        [assignedUserId],
-      );
-
-      if (current.assigned_user_id === assignedUserId) {
-        return;
-      }
-
-      const deactivatedOwner = await client.query<{ id: string }>(
-        `UPDATE users u
-         SET is_active = false, updated_at = now()
-         WHERE u.id = $1
-           AND u.role = 'owner'
-           AND NOT EXISTS (
-             SELECT 1
-             FROM venues v
-             WHERE v.assigned_user_id = u.id
-               AND v.is_active = true
-           )
-         RETURNING u.id`,
-        [current.assigned_user_id],
-      );
-
-      if (deactivatedOwner.rows[0]) {
-        await client.query("DELETE FROM sessions WHERE user_id = $1", [
-          current.assigned_user_id,
-        ]);
-      }
-    });
+    await updateVenueRecord(formData);
   } catch (error) {
     redirectToReturnPath(formData, "/venues", {
       message: getActionErrorMessage(error, "Venue could not be updated."),
@@ -269,6 +222,30 @@ export async function updateVenueAction(formData: FormData) {
     message: "Venue updated successfully.",
     type: "success",
   });
+}
+
+export async function updateVenueInlineAction(
+  formData: FormData,
+): Promise<VenueActionResult> {
+  await requireSuperadmin();
+
+  try {
+    await updateVenueRecord(formData);
+
+    revalidatePath("/venues");
+    revalidatePath("/calendar");
+
+    return {
+      message: "Venue updated successfully.",
+      ok: true,
+      venues: await getAllVenues(),
+    };
+  } catch (error) {
+    return {
+      message: getActionErrorMessage(error, "Venue could not be updated."),
+      ok: false,
+    };
+  }
 }
 
 export async function toggleOwnerActiveAction(formData: FormData) {
@@ -334,62 +311,10 @@ export async function toggleOwnerActiveInlineAction(
 export async function toggleVenueActiveAction(formData: FormData) {
   await requireSuperadmin();
 
-  const venueId = getRequiredFormString(formData, "venueId");
   const isActive = getRequiredFormString(formData, "isActive") === "true";
 
   try {
-    await transaction(async (client) => {
-      const result = await client.query<{ assigned_user_id: string }>(
-        `SELECT assigned_user_id
-         FROM venues
-         WHERE id = $1
-         LIMIT 1`,
-        [venueId],
-      );
-      const venue = result.rows[0];
-
-      if (!venue) {
-        throw new Error("Venue was not found.");
-      }
-
-      await client.query(
-        `UPDATE venues
-         SET is_active = $1, updated_at = now()
-         WHERE id = $2`,
-        [isActive, venueId],
-      );
-
-      if (isActive) {
-        await client.query(
-          `UPDATE users
-           SET is_active = true, updated_at = now()
-           WHERE id = $1 AND role = 'owner'`,
-          [venue.assigned_user_id],
-        );
-        return;
-      }
-
-      const deactivatedOwner = await client.query<{ id: string }>(
-        `UPDATE users u
-         SET is_active = false, updated_at = now()
-         WHERE u.id = $1
-           AND u.role = 'owner'
-           AND NOT EXISTS (
-             SELECT 1
-             FROM venues v
-             WHERE v.assigned_user_id = u.id
-               AND v.is_active = true
-           )
-         RETURNING u.id`,
-        [venue.assigned_user_id],
-      );
-
-      if (deactivatedOwner.rows[0]) {
-        await client.query("DELETE FROM sessions WHERE user_id = $1", [
-          venue.assigned_user_id,
-        ]);
-      }
-    });
+    await toggleVenueActiveRecord(formData);
   } catch (error) {
     redirectToReturnPath(formData, "/venues", {
       message: getActionErrorMessage(
@@ -408,6 +333,187 @@ export async function toggleVenueActiveAction(formData: FormData) {
       ? "Venue activated successfully."
       : "Venue deactivated successfully.",
     type: "success",
+  });
+}
+
+export async function toggleVenueActiveInlineAction(
+  formData: FormData,
+): Promise<VenueActionResult> {
+  await requireSuperadmin();
+
+  const isActive = getRequiredFormString(formData, "isActive") === "true";
+
+  try {
+    await toggleVenueActiveRecord(formData);
+
+    revalidatePath("/owners");
+    revalidatePath("/venues");
+    revalidatePath("/calendar");
+
+    return {
+      message: isActive
+        ? "Venue activated successfully."
+        : "Venue deactivated successfully.",
+      ok: true,
+      venues: await getAllVenues(),
+    };
+  } catch (error) {
+    return {
+      message: getActionErrorMessage(
+        error,
+        "Venue status could not be updated.",
+      ),
+      ok: false,
+    };
+  }
+}
+
+async function createVenueRecord(formData: FormData, createdById: string) {
+  const name = getRequiredFormString(formData, "name");
+  const typeId = getRequiredFormString(formData, "typeId");
+  const assignedUserId = getRequiredFormString(formData, "assignedUserId");
+  const description = getFormString(formData, "description");
+
+  await transaction(async (client) => {
+    await client.query(
+      `INSERT INTO venues
+        (name, type_id, assigned_user_id, description, created_by_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [name, typeId, assignedUserId, description, createdById],
+    );
+    await client.query(
+      `UPDATE users
+       SET is_active = true, updated_at = now()
+       WHERE id = $1 AND role = 'owner'`,
+      [assignedUserId],
+    );
+  });
+}
+
+async function updateVenueRecord(formData: FormData) {
+  const id = getRequiredFormString(formData, "id");
+  const name = getRequiredFormString(formData, "name");
+  const typeId = getRequiredFormString(formData, "typeId");
+  const assignedUserId = getRequiredFormString(formData, "assignedUserId");
+  const description = getFormString(formData, "description");
+
+  await transaction(async (client) => {
+    const currentVenue = await client.query<{
+      assigned_user_id: string;
+      is_active: boolean;
+    }>(
+      `SELECT assigned_user_id, is_active
+       FROM venues
+       WHERE id = $1
+       LIMIT 1`,
+      [id],
+    );
+    const current = currentVenue.rows[0];
+
+    await client.query(
+      `UPDATE venues
+       SET name = $1,
+           type_id = $2,
+           assigned_user_id = $3,
+           description = $4,
+           updated_at = now()
+       WHERE id = $5`,
+      [name, typeId, assignedUserId, description, id],
+    );
+
+    if (!current?.is_active) {
+      return;
+    }
+
+    await client.query(
+      `UPDATE users
+       SET is_active = true, updated_at = now()
+       WHERE id = $1 AND role = 'owner'`,
+      [assignedUserId],
+    );
+
+    if (current.assigned_user_id === assignedUserId) {
+      return;
+    }
+
+    const deactivatedOwner = await client.query<{ id: string }>(
+      `UPDATE users u
+       SET is_active = false, updated_at = now()
+       WHERE u.id = $1
+         AND u.role = 'owner'
+         AND NOT EXISTS (
+           SELECT 1
+           FROM venues v
+           WHERE v.assigned_user_id = u.id
+             AND v.is_active = true
+         )
+       RETURNING u.id`,
+      [current.assigned_user_id],
+    );
+
+    if (deactivatedOwner.rows[0]) {
+      await client.query("DELETE FROM sessions WHERE user_id = $1", [
+        current.assigned_user_id,
+      ]);
+    }
+  });
+}
+
+async function toggleVenueActiveRecord(formData: FormData) {
+  const venueId = getRequiredFormString(formData, "venueId");
+  const isActive = getRequiredFormString(formData, "isActive") === "true";
+
+  await transaction(async (client) => {
+    const result = await client.query<{ assigned_user_id: string }>(
+      `SELECT assigned_user_id
+       FROM venues
+       WHERE id = $1
+       LIMIT 1`,
+      [venueId],
+    );
+    const venue = result.rows[0];
+
+    if (!venue) {
+      throw new Error("Venue was not found.");
+    }
+
+    await client.query(
+      `UPDATE venues
+       SET is_active = $1, updated_at = now()
+       WHERE id = $2`,
+      [isActive, venueId],
+    );
+
+    if (isActive) {
+      await client.query(
+        `UPDATE users
+         SET is_active = true, updated_at = now()
+         WHERE id = $1 AND role = 'owner'`,
+        [venue.assigned_user_id],
+      );
+      return;
+    }
+
+    const deactivatedOwner = await client.query<{ id: string }>(
+      `UPDATE users u
+       SET is_active = false, updated_at = now()
+       WHERE u.id = $1
+         AND u.role = 'owner'
+         AND NOT EXISTS (
+           SELECT 1
+           FROM venues v
+           WHERE v.assigned_user_id = u.id
+             AND v.is_active = true
+         )
+       RETURNING u.id`,
+      [venue.assigned_user_id],
+    );
+
+    if (deactivatedOwner.rows[0]) {
+      await client.query("DELETE FROM sessions WHERE user_id = $1", [
+        venue.assigned_user_id,
+      ]);
+    }
   });
 }
 

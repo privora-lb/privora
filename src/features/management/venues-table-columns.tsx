@@ -25,7 +25,8 @@ const mobileDescriptionTextareaClassName =
 type UseVenueColumnsParams = {
   clearFieldError: (rowId: string, field: VenueValidationField) => void;
   fieldErrors: Record<string, VenueValidationErrors>;
-  getVenueToggleFormId: (id: string) => string;
+  onToggleVenueActive: (row: VenueDraft) => void;
+  pendingToggleVenueId: string | null;
   types: VenueType[];
   updateDraft: (id: string, patch: Partial<VenueDraft>) => void;
   users: AppUser[];
@@ -34,7 +35,8 @@ type UseVenueColumnsParams = {
 export function useVenueColumns({
   clearFieldError,
   fieldErrors,
-  getVenueToggleFormId,
+  onToggleVenueActive,
+  pendingToggleVenueId,
   types,
   updateDraft,
   users,
@@ -178,13 +180,15 @@ export function useVenueColumns({
             <ActiveSwitch
               checked={row.isActive}
               className="mx-auto"
-              form={getVenueToggleFormId(row.id)}
+              disabled={pendingToggleVenueId === row.id}
+              isLoading={pendingToggleVenueId === row.id}
               label={
                 row.isActive
                   ? `Deactivate ${row.name}`
                   : `Activate ${row.name}`
               }
-              type="submit"
+              onClick={() => onToggleVenueActive(row)}
+              type="button"
             />
           );
         },
@@ -223,7 +227,8 @@ export function useVenueColumns({
     [
       clearFieldError,
       fieldErrors,
-      getVenueToggleFormId,
+      onToggleVenueActive,
+      pendingToggleVenueId,
       types,
       updateDraft,
       users,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Save, Trash2, X } from "lucide-react";
+import { Loader2, Save, Trash2, X } from "lucide-react";
 import {
   useCallback,
   useMemo,
@@ -9,38 +9,35 @@ import {
 } from "react";
 
 import {
-  createVenueTypeAction,
-  deleteVenueTypeAction,
-  updateVenueTypeAction,
+  createVenueTypeInlineAction,
+  deleteVenueTypeInlineAction,
+  updateVenueTypeInlineAction,
 } from "@/app/(app)/types/actions";
-import { CmsDataTable, type CmsDataTableColumn } from "@/components/cms/CmsDataTable";
+import { CmsDataTable } from "@/components/cms/CmsDataTable";
 import { CmsToastStack } from "@/components/cms/CmsToastStack";
 import { CmsDataTableIconButton } from "@/components/cms/data-table/CmsDataTableIconButton";
-import {
-  cmsTableFieldErrorClassName,
-  cmsTableInputClassName,
-} from "@/components/cms/cms-table-controls";
 import { DeleteConfirmationModal } from "@/components/cms/delete-confirmation-modal";
 import { useCmsToasts } from "@/components/cms/use-cms-toasts";
 import {
   getFirstVenueTypeValidationMessage,
-  getVenueTypeValidationError,
   type VenueTypeDraft,
   type VenueTypeValidationErrors,
   type VenueTypeValidationField,
   validateVenueTypeDraft,
 } from "@/features/types/venue-type-table-validation";
+import { useVenueTypeColumns } from "@/features/types/venue-types-table-columns";
 import type { VenueType } from "@/lib/types";
-import { cn } from "@/lib/ui";
 
 const newTypeId = "new-type-row";
-const mobileDescriptionTextareaClassName =
-  "min-h-24 w-full resize-y rounded-xl border border-[#d8e9ee] bg-white px-3 py-2.5 text-left text-[13px] font-bold leading-5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0EA5A8] focus:ring-3 focus:ring-[#0EA5A8]/15";
+const minimumPendingMs = 450;
 
 export function VenueTypesTable({ types }: { types: VenueType[] }) {
   const { dismissToast, pushToast, toasts } = useCmsToasts();
   const [newType, setNewType] = useState<VenueTypeDraft | null>(null);
   const [deleteType, setDeleteType] = useState<VenueTypeDraft | null>(null);
+  const [typeRows, setTypeRows] = useState<VenueType[]>(types);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingSaveId, setPendingSaveId] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<
     Record<string, VenueTypeValidationErrors>
   >({});
@@ -50,9 +47,9 @@ export function VenueTypesTable({ types }: { types: VenueType[] }) {
   const rows = useMemo(
     () => [
       ...(newType ? [newType] : []),
-      ...types.map((type) => drafts[type.id] ?? type),
+      ...typeRows.map((type) => drafts[type.id] ?? type),
     ],
-    [drafts, newType, types],
+    [drafts, newType, typeRows],
   );
 
   const clearFieldError = useCallback(
@@ -88,17 +85,41 @@ export function VenueTypesTable({ types }: { types: VenueType[] }) {
 
       setDrafts((current) => ({
         ...current,
-        [id]: { ...(current[id] ?? types.find((type) => type.id === id)!), ...patch },
+        [id]: {
+          ...(current[id] ?? typeRows.find((type) => type.id === id)!),
+          ...patch,
+        },
       }));
     },
-    [types],
+    [typeRows],
   );
 
+  const applyTypeMutation = useCallback((type: VenueType) => {
+    setTypeRows((current) => {
+      const exists = current.some((item) => item.id === type.id);
+      const next = exists
+        ? current.map((item) => (item.id === type.id ? type : item))
+        : [type, ...current];
+
+      return [...next].sort((a, b) => a.name.localeCompare(b.name));
+    });
+    setDrafts((current) => {
+      const next = { ...current };
+      delete next[newTypeId];
+      next[type.id] = type;
+      return next;
+    });
+  }, []);
+
   const saveType = useCallback(
-    (row: VenueTypeDraft, event: MouseEvent<HTMLButtonElement>) => {
+    async (row: VenueTypeDraft, event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
 
-      const errors = validateVenueTypeDraft(row, types);
+      if (pendingSaveId) {
+        return;
+      }
+
+      const errors = validateVenueTypeDraft(row, typeRows);
 
       if (Object.keys(errors).length > 0) {
         setFieldErrors((current) => ({ ...current, [row.id]: errors }));
@@ -116,119 +137,73 @@ export function VenueTypesTable({ types }: { types: VenueType[] }) {
         return next;
       });
 
-      const typeForm = document.getElementById(getTypeFormId(row.id));
-      if (typeForm instanceof HTMLFormElement) {
-        typeForm.requestSubmit();
+      const formData = getTypeFormData(row);
+      const pendingStartedAt = Date.now();
+      setPendingSaveId(row.id);
+
+      try {
+        const result = row.isNew
+          ? await createVenueTypeInlineAction(formData)
+          : await updateVenueTypeInlineAction(formData);
+
+        if (!result.ok) {
+          pushToast("error", result.message);
+          return;
+        }
+
+        applyTypeMutation(result.type);
+        if (row.isNew) {
+          setNewType(null);
+        }
+        pushToast("success", result.message);
+      } finally {
+        await waitForMinimumPendingTime(pendingStartedAt);
+        setPendingSaveId(null);
       }
     },
-    [pushToast, types],
+    [applyTypeMutation, pendingSaveId, pushToast, typeRows],
   );
 
-  const columns = useMemo<CmsDataTableColumn<VenueTypeDraft>[]>(
-    () => [
-      {
-        key: "name",
-        label: "Type name",
-        baseWidth: 220,
-        minWidth: 180,
-        maxWidth: 360,
-        grow: 0.6,
-        sortable: true,
-        textValue: (row) => row.name,
-        render: (row) => {
-          const isNameLocked = !row.isNew && row.venueCount > 0;
-          const error = getVenueTypeValidationError(
-            fieldErrors,
-            row.id,
-            "name",
-          );
+  const deleteSelectedType = useCallback(async (row: VenueTypeDraft) => {
+    if (pendingDeleteId) {
+      return;
+    }
 
-          return (
-            <input
-              aria-invalid={Boolean(error)}
-              className={cn(
-                cmsTableInputClassName,
-                error && cmsTableFieldErrorClassName,
-                isNameLocked && "cursor-not-allowed text-slate-400 opacity-80",
-              )}
-              disabled={isNameLocked}
-              onChange={(event) => {
-                updateDraft(row.id, { name: event.target.value });
-                clearFieldError(row.id, "name");
-              }}
-              placeholder={row.isNew ? "Type name" : undefined}
-              required
-              title={
-                error ??
-                (isNameLocked
-                  ? "This type name is locked because venues use it."
-                  : undefined)
-              }
-              value={row.name}
-            />
-          );
-        },
-      },
-      {
-        key: "venueCount",
-        label: "Usage",
-        align: "center",
-        baseWidth: 150,
-        minWidth: 120,
-        maxWidth: 220,
-        sortable: true,
-        sortType: "number",
-        sortValue: (row) => row.venueCount,
-        textValue: (row) =>
-          row.venueCount > 0 ? `Used by ${row.venueCount} venues` : "Unused",
-        render: (row) =>
-          row.isNew ? (
-            <span className="inline-flex h-7 items-center justify-center rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-600">
-              New
-            </span>
-          ) : row.venueCount > 0 ? (
-            <span className="inline-flex h-7 items-center justify-center rounded-md border border-cyan-200 bg-cyan-50 px-2.5 text-xs font-medium text-cyan-800">
-              Used by {row.venueCount}
-            </span>
-          ) : (
-            <span className="inline-flex h-7 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-medium text-emerald-800">
-              Unused
-            </span>
-          ),
-      },
-      {
-        key: "description",
-        label: "Description",
-        baseWidth: 420,
-        minWidth: 260,
-        maxWidth: 720,
-        grow: 1,
-        sortable: true,
-        textValue: (row) => row.description,
-        render: (row) => (
-          <input
-            className={cmsTableInputClassName}
-            onChange={(event) =>
-              updateDraft(row.id, { description: event.target.value })
-            }
-            placeholder="Description"
-            value={row.description}
-          />
-        ),
-        mobileRender: (row) => (
-          <textarea
-            className={mobileDescriptionTextareaClassName}
-            onChange={(event) =>
-              updateDraft(row.id, { description: event.target.value })
-            }
-            placeholder="Description"
-            value={row.description}
-          />
-        ),
-      },
-    ],
-    [clearFieldError, fieldErrors, updateDraft],
-  );
+    const formData = new FormData();
+    formData.set("id", row.id);
+    const pendingStartedAt = Date.now();
+    setPendingDeleteId(row.id);
+
+    try {
+      const result = await deleteVenueTypeInlineAction(formData);
+
+      if (!result.ok) {
+        pushToast("error", result.message);
+        setDeleteType(null);
+        return;
+      }
+
+      setTypeRows((current) =>
+        current.filter((type) => type.id !== result.deletedId),
+      );
+      setDrafts((current) => {
+        const next = { ...current };
+        delete next[result.deletedId];
+        return next;
+      });
+      setDeleteType(null);
+      pushToast("success", result.message);
+    } finally {
+      await waitForMinimumPendingTime(pendingStartedAt);
+      setPendingDeleteId(null);
+    }
+  }, [pendingDeleteId, pushToast]);
+
+  const columns = useVenueTypeColumns({
+    clearFieldError,
+    fieldErrors,
+    updateDraft,
+  });
 
   function addTypeRow() {
     setNewType((current) =>
@@ -245,11 +220,13 @@ export function VenueTypesTable({ types }: { types: VenueType[] }) {
   return (
     <>
       <CmsToastStack onDismiss={dismissToast} toasts={toasts} />
-      <HiddenVenueTypeForms rows={rows} />
       {deleteType ? (
         <DeleteConfirmationModal
-          confirmFormId={getTypeDeleteFormId(deleteType.id)}
+          isConfirming={pendingDeleteId === deleteType.id}
           onCancel={() => setDeleteType(null)}
+          onConfirm={() => {
+            void deleteSelectedType(deleteType);
+          }}
           title="Delete space type?"
         >
           This will permanently delete {deleteType.name}. It is not assigned to
@@ -261,30 +238,50 @@ export function VenueTypesTable({ types }: { types: VenueType[] }) {
         actions={[
           {
             label: "Save type",
-            render: (row) => (
-              <CmsDataTableIconButton
-                className="h-7 w-7 rounded-md text-[#1f4f8f]"
-                label={row.isNew ? "Create type" : "Save type"}
-                onClick={(event) => saveType(row, event)}
-                type="button"
-              >
-                <Save size={14} aria-hidden="true" />
-              </CmsDataTableIconButton>
-            ),
+            render: (row) => {
+              const isSaving = pendingSaveId === row.id;
+              const Icon = isSaving ? Loader2 : Save;
+
+              return (
+                <CmsDataTableIconButton
+                  className="h-7 w-7 rounded-md text-[#1f4f8f]"
+                  disabled={Boolean(pendingSaveId)}
+                  label={row.isNew ? "Create type" : "Save type"}
+                  onClick={(event) => saveType(row, event)}
+                  type="button"
+                >
+                  <Icon
+                    className={isSaving ? "animate-spin" : undefined}
+                    size={14}
+                    aria-hidden="true"
+                  />
+                </CmsDataTableIconButton>
+              );
+            },
           },
           {
             label: "Delete type",
             isVisible: (row) => !row.isNew && row.venueCount === 0,
-            render: (row) => (
-              <CmsDataTableIconButton
-                className="h-7 w-7 rounded-md text-rose-700 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-800"
-                label="Delete type"
-                onClick={() => setDeleteType(row)}
-                type="button"
-              >
-                <Trash2 size={14} aria-hidden="true" />
-              </CmsDataTableIconButton>
-            ),
+            render: (row) => {
+              const isDeleting = pendingDeleteId === row.id;
+              const Icon = isDeleting ? Loader2 : Trash2;
+
+              return (
+                <CmsDataTableIconButton
+                  className="h-7 w-7 rounded-md text-rose-700 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-800"
+                  disabled={Boolean(pendingDeleteId)}
+                  label="Delete type"
+                  onClick={() => setDeleteType(row)}
+                  type="button"
+                >
+                  <Icon
+                    className={isDeleting ? "animate-spin" : undefined}
+                    size={14}
+                    aria-hidden="true"
+                  />
+                </CmsDataTableIconButton>
+              );
+            },
           },
           {
             label: "Cancel new type",
@@ -292,6 +289,7 @@ export function VenueTypesTable({ types }: { types: VenueType[] }) {
             render: () => (
               <CmsDataTableIconButton
                 className="h-7 w-7 rounded-md text-rose-700 hover:text-rose-800"
+                disabled={pendingSaveId === newTypeId}
                 label="Cancel new type"
                 onClick={() => setNewType(null)}
                 type="button"
@@ -322,36 +320,22 @@ export function VenueTypesTable({ types }: { types: VenueType[] }) {
   );
 }
 
-function HiddenVenueTypeForms({ rows }: { rows: VenueTypeDraft[] }) {
-  return (
-    <div className="hidden">
-      {rows.map((row) => (
-        <div key={row.id}>
-          <form
-            action={row.isNew ? createVenueTypeAction : updateVenueTypeAction}
-            id={getTypeFormId(row.id)}
-          >
-            {!row.isNew ? <input name="id" readOnly value={row.id} /> : null}
-            <input name="returnTo" readOnly value="/types" />
-            <input name="name" readOnly value={row.name} />
-            <input name="description" readOnly value={row.description} />
-          </form>
-          {!row.isNew && row.venueCount === 0 ? (
-            <form action={deleteVenueTypeAction} id={getTypeDeleteFormId(row.id)}>
-              <input name="id" readOnly value={row.id} />
-              <input name="returnTo" readOnly value="/types" />
-            </form>
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
+function getTypeFormData(row: VenueTypeDraft) {
+  const formData = new FormData();
+
+  if (!row.isNew) {
+    formData.set("id", row.id);
+  }
+  formData.set("name", row.name);
+  formData.set("description", row.description);
+
+  return formData;
 }
 
-function getTypeFormId(id: string) {
-  return `type-form-${id}`;
-}
+async function waitForMinimumPendingTime(startedAt: number) {
+  const remainingMs = minimumPendingMs - (Date.now() - startedAt);
 
-function getTypeDeleteFormId(id: string) {
-  return `type-delete-form-${id}`;
+  if (remainingMs > 0) {
+    await new Promise((resolve) => window.setTimeout(resolve, remainingMs));
+  }
 }
