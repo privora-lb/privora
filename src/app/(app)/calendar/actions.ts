@@ -71,10 +71,6 @@ function isPastDate(value: Date | string) {
   return normalizeDateKey(value) < todayKey();
 }
 
-function getSourceClientId(formData: FormData) {
-  return getFormString(formData, "sourceClientId") || undefined;
-}
-
 function getFriendlyError(error: unknown, fallback: string) {
   if (isRedirectError(error)) {
     throw error;
@@ -232,7 +228,6 @@ async function saveCalendarEntryMutation(
   revalidatePath("/calendar");
   publishRealtimeAfterResponse({
     date,
-    sourceClientId: getSourceClientId(formData),
     type: "calendar-entry-changed",
     venueId,
   });
@@ -325,7 +320,6 @@ async function requestCalendarChangeMutation(
   revalidatePath("/approvals");
   publishRealtimeAfterResponse({
     date,
-    sourceClientId: getSourceClientId(formData),
     type: "calendar-request-changed",
     venueId,
   });
@@ -425,7 +419,6 @@ async function decideChangeRequestMutation(
   publishRealtimeAfterResponse({
     date: changedDate,
     requestId,
-    sourceClientId: getSourceClientId(formData),
     type: "calendar-request-changed",
     venueId: changedVenueId,
   });
@@ -481,7 +474,6 @@ async function deletePendingChangeRequestMutation(
   publishRealtimeAfterResponse({
     date,
     requestId,
-    sourceClientId: getSourceClientId(formData),
     type: "calendar-request-changed",
     venueId,
   });

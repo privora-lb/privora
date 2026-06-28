@@ -99,6 +99,15 @@ export default async function CalendarPage({
     inMonth: day.inMonth,
     isToday: day.isToday,
   }));
+  const calendarDataVersion = [
+    ...entries.map(
+      (entry) => `e:${entry.date}:${entry.status}:${entry.note}`,
+    ),
+    ...pendingRequests.map(
+      (request) =>
+        `r:${request.id}:${request.date}:${request.requestedStatus}:${request.requestedNote}`,
+    ),
+  ].join("|");
 
   return (
     <>
@@ -113,7 +122,7 @@ export default async function CalendarPage({
         initialMobileDate={selectedMobileDate}
         initialSelectedDate={selectedDate}
         isReadOnlyMonth={isReadOnlyMonth}
-        key={`${selectedVenue.id}:${monthKey}:${selectedDate ?? ""}`}
+        key={`${selectedVenue.id}:${monthKey}:${selectedDate ?? ""}:${calendarDataVersion}`}
         monthKey={monthKey}
         pendingRequests={pendingRequests}
         selectedVenue={selectedVenue}

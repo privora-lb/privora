@@ -22,7 +22,6 @@ import {
   createOptimisticEntry,
   createOptimisticRequest,
 } from "@/features/calendar/day-panel-optimistic";
-import { getClientInstanceId } from "@/lib/client-instance-id";
 import type {
   AppUser,
   CalendarEntry,
@@ -87,7 +86,6 @@ export function PendingRequestBox({
     const decision = submitter?.value === "rejected" ? "rejected" : "approved";
     const formData = new FormData(event.currentTarget);
     formData.set("decision", decision);
-    formData.set("sourceClientId", getClientInstanceId());
 
     const previousEntry = entry;
     setPendingDecision(decision);
@@ -190,7 +188,6 @@ export function DirectEditForm({
 
     const formData = new FormData(event.currentTarget);
     const optimisticEntry = createOptimisticEntry(formData, entry, user, venue);
-    formData.set("sourceClientId", getClientInstanceId());
     setIsPending(true);
     onEntryChange(date, optimisticEntry);
 
@@ -263,7 +260,6 @@ export function RequestChangeForm({
       user,
       venue,
     );
-    formData.set("sourceClientId", getClientInstanceId());
     setIsPending(true);
     onPendingRequestChange(optimisticRequest);
 

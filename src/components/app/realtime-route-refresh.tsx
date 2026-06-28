@@ -8,7 +8,6 @@ import {
   getVenueRealtimeChannel,
   realtimeGlobalChannel,
 } from "@/lib/realtime-channels";
-import { getClientInstanceId } from "@/lib/client-instance-id";
 import { realtimeEventName, type RealtimeEvent } from "@/lib/realtime-events";
 import type { UserRole } from "@/lib/types";
 
@@ -24,15 +23,17 @@ export function RealtimeRouteRefresh({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const clientInstanceId = useMemo(() => getClientInstanceId(), []);
   const refreshTimer = useRef<number | undefined>(undefined);
   const queryString = searchParams.toString();
+  const ownerVenueKey = ownerVenueIds.join("|");
   const channelNames = useMemo(
     () =>
       userRole === "superadmin"
         ? [realtimeGlobalChannel]
-        : ownerVenueIds.map(getVenueRealtimeChannel),
-    [ownerVenueIds, userRole],
+        : ownerVenueKey
+          ? ownerVenueKey.split("|").map(getVenueRealtimeChannel)
+          : [],
+    [ownerVenueKey, userRole],
   );
 
   useEffect(() => {
@@ -53,14 +54,20 @@ export function RealtimeRouteRefresh({
       }, refreshDelayMs);
     }
 
+    function handleConnectionRecovery(stateChange: { current: string; previous: string }) {
+      if (
+        stateChange.current === "connected" &&
+        stateChange.previous !== "initialized" &&
+        stateChange.previous !== "connecting"
+      ) {
+        refreshSoon();
+      }
+    }
+
     function handleMessage(message: InboundMessage) {
       const event = parseRealtimeEvent(message.data);
 
       if (!event) {
-        return;
-      }
-
-      if (event.sourceClientId && event.sourceClientId === clientInstanceId) {
         return;
       }
 
@@ -78,6 +85,7 @@ export function RealtimeRouteRefresh({
       }
     }
 
+    client.connection.on(handleConnectionRecovery);
     subscribedChannels.forEach((channel) => {
       void channel.subscribe(realtimeEventName, (message) => {
         if (isMounted) {
@@ -89,12 +97,33 @@ export function RealtimeRouteRefresh({
     return () => {
       isMounted = false;
       window.clearTimeout(refreshTimer.current);
+      client.connection.off(handleConnectionRecovery);
       subscribedChannels.forEach((channel) => {
         channel.unsubscribe(realtimeEventName);
       });
       client.close();
     };
-  }, [channelNames, clientInstanceId, pathname, queryString, router, userRole]);
+  }, [channelNames, pathname, queryString, router, userRole]);
+
+  useEffect(() => {
+    if (!shouldListen(pathname)) {
+      return;
+    }
+
+    function refreshWhenVisible() {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    }
+
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", refreshWhenVisible);
+
+    return () => {
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", refreshWhenVisible);
+    };
+  }, [pathname, router]);
 
   return null;
 }

@@ -14,7 +14,6 @@ import { DeleteConfirmationModal } from "@/components/cms/delete-confirmation-mo
 import { useCmsToasts } from "@/components/cms/use-cms-toasts";
 import { ApprovalsTableFilters } from "@/features/approvals/approvals-table-filters";
 import { useApprovalsColumns } from "@/features/approvals/approvals-table-columns";
-import { getClientInstanceId } from "@/lib/client-instance-id";
 import { getDateLabel } from "@/lib/dates";
 import type { CalendarStatus, RequestStatus } from "@/lib/types";
 
@@ -132,7 +131,6 @@ export function ApprovalsTable({
     formData.set("requestId", row.id);
     formData.set("decision", decision);
     formData.set("decisionNote", row.decisionDraft);
-    formData.set("sourceClientId", getClientInstanceId());
 
     const result = await decideChangeRequestInlineAction(formData);
     setPendingAction(null);
@@ -163,7 +161,6 @@ export function ApprovalsTable({
 
     const formData = new FormData();
     formData.set("requestId", row.id);
-    formData.set("sourceClientId", getClientInstanceId());
 
     const result = await deletePendingChangeRequestInlineAction(formData);
     setPendingAction(null);
