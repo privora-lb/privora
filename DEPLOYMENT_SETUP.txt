@@ -1,0 +1,106 @@
+Deployment Setup Plan
+
+This project should be moved from the developer-owned accounts to accounts owned by the final project owner.
+The goal is that the owner controls the source code, hosting, database, realtime service, domain, and future storage.
+
+Required owner accounts
+
+The owner should create and provide access to these accounts:
+
+1. GitHub
+   - Create a private repository for this project.
+   - The project source code will be pushed to that repository.
+   - The developer can be added as a collaborator only if maintenance access is needed.
+
+2. Vercel
+   - Create a Vercel account or team under the owner's ownership.
+   - Connect the owner's GitHub repository to Vercel.
+   - Create a Vercel project from that repository.
+   - Add the required environment variables in the Vercel project settings.
+
+3. Supabase
+   - Create a Supabase project for the production database.
+   - This will replace the current local PostgreSQL database for production.
+   - Later, Supabase Storage can also be used for images/files when the image feature is added.
+
+4. Ably
+   - Create an Ably account and app for realtime calendar updates.
+   - Add the Ably API key to Vercel environment variables.
+
+5. Domain and DNS
+   - The owner should buy or control the production domain.
+   - Recommended DNS provider: Cloudflare.
+   - The domain will be connected to the Vercel project.
+
+6. Domain email
+   - If the owner needs email addresses like info@domain.com, use a domain email provider.
+   - Recommended options: Zoho Mail for lower cost, or Google Workspace for Gmail-style business email.
+
+How this project will be linked to the owner accounts
+
+1. GitHub link
+   - Create a new private repository under the owner's GitHub account or organization.
+   - Change this local project's Git remote to the owner's repository.
+   - Push the project source code to the owner's repository.
+   - Confirm that future pushes go only to the owner's repository.
+
+2. Vercel link
+   - In the owner's Vercel account, import the owner's GitHub repository.
+   - Configure the build settings for the Next.js project.
+   - Add all required production environment variables.
+   - Deploy the project from the owner's Vercel account.
+
+3. Supabase database link
+   - Create the Supabase project.
+   - Copy the Supabase PostgreSQL connection string.
+   - Add the Supabase database URL to Vercel environment variables.
+   - Run the database schema on Supabase.
+   - Seed the starting data if needed.
+   - Test login, calendar updates, approvals, owners, venues, and space types against Supabase.
+
+4. Ably realtime link
+   - Create an Ably app under the owner's Ably account.
+   - Copy the Ably API key.
+   - Add the Ably API key to Vercel environment variables.
+   - Test realtime calendar sync between two browser sessions.
+
+5. Domain link
+   - Add the owner's domain to Vercel.
+   - Update DNS records in the domain provider or Cloudflare.
+   - Confirm the production site opens correctly over HTTPS.
+
+Database migration plan
+
+1. Keep the local database for development only.
+2. Create a new Supabase production database.
+3. Run the current database schema on Supabase.
+4. Seed initial production data if required.
+5. Update Vercel environment variables to use Supabase.
+6. Deploy the project.
+7. Test all important flows:
+   - Login
+   - Owner access
+   - Superadmin access
+   - Calendar save
+   - Owner change request
+   - Approval/rejection
+   - Pending request deletion
+   - Owner activation/deactivation
+   - Venue activation/deactivation
+   - Space type restrictions
+   - Realtime calendar sync
+
+Image storage note
+
+For now, this project does not need image storage.
+Images will be added later when the related feature is integrated.
+When that feature is ready, Supabase Storage can be used under the same Supabase account.
+At that time, the storage buckets, upload rules, and image access rules should be configured properly.
+
+Important notes
+
+- Do not keep production secrets in the developer's accounts.
+- Do not reuse the developer's local database for production.
+- Do not deploy production from the old GitHub repository after the move.
+- The owner should own the GitHub repository, Vercel project, Supabase project, Ably app, domain, DNS, and email provider.
+- The developer can stay as a collaborator only if the owner wants ongoing maintenance support.

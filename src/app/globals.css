@@ -22,3 +22,21 @@ select,
 textarea {
   font: inherit;
 }
+
+a,
+button,
+label,
+select,
+summary,
+input,
+textarea {
+  touch-action: manipulation;
+}
+
+summary {
+  list-style: none;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}

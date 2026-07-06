@@ -79,6 +79,53 @@ function getFriendlyError(error: unknown, fallback: string) {
   return getActionErrorMessage(error, fallback);
 }
 
+function getOptionalDepositAmount(formData: FormData) {
+  const rawValue = getFormString(formData, "depositAmount");
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const amount = Number(rawValue);
+
+  if (!Number.isFinite(amount)) {
+    throw new Error("Deposit must be a valid number.");
+  }
+
+  if (amount < 0) {
+    throw new Error("Deposit cannot be negative.");
+  }
+
+  return amount;
+}
+
+function getOptionalTimeRange(formData: FormData) {
+  const fromTime = getFormString(formData, "fromTime");
+  const toTime = getFormString(formData, "toTime");
+
+  if (!fromTime && !toTime) {
+    return { fromTime: null, toTime: null };
+  }
+
+  if (!fromTime || !toTime) {
+    throw new Error("From time and to time must be filled together.");
+  }
+
+  if (!isValidTimeValue(fromTime) || !isValidTimeValue(toTime)) {
+    throw new Error("Time must use a valid 24-hour format.");
+  }
+
+  if (toTime <= fromTime) {
+    throw new Error("To time must be after from time.");
+  }
+
+  return { fromTime, toTime };
+}
+
+function isValidTimeValue(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
 export async function saveCalendarEntryInlineAction(
   formData: FormData,
 ): Promise<ActionResult<{ entry: CalendarEntry | null }>> {
@@ -194,6 +241,10 @@ async function saveCalendarEntryMutation(
 
   const status = parseStatus(getRequiredFormString(formData, "status"));
   const note = getFormString(formData, "note");
+  const customerName = getFormString(formData, "customerName");
+  const customerPhone = getFormString(formData, "customerPhone");
+  const depositAmount = getOptionalDepositAmount(formData);
+  const { fromTime, toTime } = getOptionalTimeRange(formData);
   const venue = await getVenueForUser(venueId, user);
 
   if (!venue || !userCanManageVenueDirectly(user, venue)) {
@@ -202,7 +253,16 @@ async function saveCalendarEntryMutation(
 
   const currentEntry = await getEntryForDay(venueId, date);
 
-  if (!currentEntry && status === "available" && !note) {
+  if (
+    !currentEntry &&
+    status === "available" &&
+    !note &&
+    !customerName &&
+    !customerPhone &&
+    depositAmount === null &&
+    fromTime === null &&
+    toTime === null
+  ) {
     revalidatePath("/calendar");
     return {
       entry: null,
@@ -212,15 +272,32 @@ async function saveCalendarEntryMutation(
 
   await query(
     `INSERT INTO calendar_entries
-      (venue_id, reservation_date, status, note, created_by_id, updated_by_id)
-     VALUES ($1, $2::date, $3, $4, $5, $5)
+      (venue_id, reservation_date, status, note, customer_name, customer_phone,
+       deposit_amount, from_time, to_time, created_by_id, updated_by_id)
+     VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8::time, $9::time, $10, $10)
      ON CONFLICT (venue_id, reservation_date)
      DO UPDATE SET
        status = EXCLUDED.status,
        note = EXCLUDED.note,
+       customer_name = EXCLUDED.customer_name,
+       customer_phone = EXCLUDED.customer_phone,
+       deposit_amount = EXCLUDED.deposit_amount,
+       from_time = EXCLUDED.from_time,
+       to_time = EXCLUDED.to_time,
        updated_by_id = EXCLUDED.updated_by_id,
        updated_at = now()`,
-    [venueId, date, status, note, user.id],
+    [
+      venueId,
+      date,
+      status,
+      note,
+      customerName,
+      customerPhone,
+      depositAmount,
+      fromTime,
+      toTime,
+      user.id,
+    ],
   );
 
   const entry = await getEntryForDay(venueId, date);
@@ -251,6 +328,10 @@ async function requestCalendarChangeMutation(
 
   const status = parseStatus(getRequiredFormString(formData, "status"));
   const note = getFormString(formData, "note");
+  const customerName = getFormString(formData, "customerName");
+  const customerPhone = getFormString(formData, "customerPhone");
+  const depositAmount = getOptionalDepositAmount(formData);
+  const { fromTime, toTime } = getOptionalTimeRange(formData);
   const venue = await getVenueForUser(venueId, user);
 
   if (!venue || !userCanRequestVenueChange(user, venue)) {
@@ -275,16 +356,36 @@ async function requestCalendarChangeMutation(
         `UPDATE change_requests
          SET requested_status = $1,
              requested_note = $2,
-             previous_status = $3,
-             previous_note = $4,
-             owner_id = $5,
+             requested_customer_name = $3,
+             requested_customer_phone = $4,
+             requested_deposit_amount = $5,
+             requested_from_time = $6::time,
+             requested_to_time = $7::time,
+             previous_status = $8,
+             previous_note = $9,
+             previous_customer_name = $10,
+             previous_customer_phone = $11,
+             previous_deposit_amount = $12,
+             previous_from_time = $13::time,
+             previous_to_time = $14::time,
+             owner_id = $15,
              updated_at = now()
-         WHERE id = $6`,
+         WHERE id = $16`,
         [
           status,
           note,
+          customerName,
+          customerPhone,
+          depositAmount,
+          fromTime,
+          toTime,
           currentEntry?.status ?? null,
           currentEntry?.note ?? null,
+          currentEntry?.customerName ?? null,
+          currentEntry?.customerPhone ?? null,
+          currentEntry?.depositAmount ?? null,
+          currentEntry?.fromTime ?? null,
+          currentEntry?.toTime ?? null,
           venue.assignedUserId,
           pending.rows[0].id,
         ],
@@ -295,15 +396,29 @@ async function requestCalendarChangeMutation(
     await client.query(
       `INSERT INTO change_requests
         (venue_id, reservation_date, requested_status, requested_note,
-         previous_status, previous_note, requested_by_id, owner_id)
-       VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8)`,
+         requested_customer_name, requested_customer_phone, requested_deposit_amount,
+         requested_from_time, requested_to_time, previous_status, previous_note,
+         previous_customer_name, previous_customer_phone, previous_deposit_amount,
+         previous_from_time, previous_to_time, requested_by_id, owner_id)
+       VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8::time, $9::time, $10,
+         $11, $12, $13, $14, $15::time, $16::time, $17, $18)`,
       [
         venueId,
         date,
         status,
         note,
+        customerName,
+        customerPhone,
+        depositAmount,
+        fromTime,
+        toTime,
         currentEntry?.status ?? null,
         currentEntry?.note ?? null,
+        currentEntry?.customerName ?? null,
+        currentEntry?.customerPhone ?? null,
+        currentEntry?.depositAmount ?? null,
+        currentEntry?.fromTime ?? null,
+        currentEntry?.toTime ?? null,
         user.id,
         venue.assignedUserId,
       ],
@@ -353,6 +468,11 @@ async function decideChangeRequestMutation(
       reservation_date: Date | string;
       requested_status: CalendarStatus;
       requested_note: string;
+      requested_customer_name: string;
+      requested_customer_phone: string;
+      requested_deposit_amount: string | null;
+      requested_from_time: string | null;
+      requested_to_time: string | null;
       requested_by_id: string;
     }>(
       `SELECT
@@ -361,6 +481,11 @@ async function decideChangeRequestMutation(
          cr.reservation_date,
          cr.requested_status,
          cr.requested_note,
+         cr.requested_customer_name,
+         cr.requested_customer_phone,
+         cr.requested_deposit_amount,
+         cr.requested_from_time,
+         cr.requested_to_time,
          cr.requested_by_id
        FROM change_requests cr
        JOIN venues v ON v.id = cr.venue_id
@@ -384,12 +509,19 @@ async function decideChangeRequestMutation(
     if (decision === "approved") {
       await client.query(
         `INSERT INTO calendar_entries
-          (venue_id, reservation_date, status, note, created_by_id, updated_by_id)
-         VALUES ($1, $2::date, $3, $4, $5, $5)
+          (venue_id, reservation_date, status, note, customer_name,
+           customer_phone, deposit_amount, from_time, to_time, created_by_id,
+           updated_by_id)
+         VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8::time, $9::time, $10, $10)
          ON CONFLICT (venue_id, reservation_date)
          DO UPDATE SET
            status = EXCLUDED.status,
            note = EXCLUDED.note,
+           customer_name = EXCLUDED.customer_name,
+           customer_phone = EXCLUDED.customer_phone,
+           deposit_amount = EXCLUDED.deposit_amount,
+           from_time = EXCLUDED.from_time,
+           to_time = EXCLUDED.to_time,
            updated_by_id = EXCLUDED.updated_by_id,
            updated_at = now()`,
         [
@@ -397,6 +529,13 @@ async function decideChangeRequestMutation(
           request.reservation_date,
           request.requested_status,
           request.requested_note,
+          request.requested_customer_name,
+          request.requested_customer_phone,
+          request.requested_deposit_amount === null
+            ? null
+            : Number(request.requested_deposit_amount),
+          request.requested_from_time,
+          request.requested_to_time,
           request.requested_by_id,
         ],
       );

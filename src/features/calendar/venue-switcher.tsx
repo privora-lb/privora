@@ -42,17 +42,17 @@ export function VenueSwitcher({
 
   return (
     <div className="relative w-full">
-      <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-[#007c92]">
+      <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-[#EACC84]">
         Select venue or space
       </label>
       <div className="relative">
         <Search
           aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#35717d]"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#123C36]"
           size={17}
         />
         <input
-          className="h-12 w-full rounded-xl border border-[#c9e5eb] bg-white px-10 pr-11 text-sm font-bold text-slate-950 shadow-[0_8px_22px_rgba(15,23,42,0.04)] outline-none transition placeholder:text-slate-400 focus:border-[#007c92] focus:ring-2 focus:ring-[#007c92]/15"
+          className="h-12 w-full rounded-xl border border-[#EACC84]/35 bg-white px-10 pr-11 text-sm font-bold text-[#123C36] shadow-[0_10px_24px_rgba(0,0,0,0.14)] outline-none transition placeholder:text-slate-400 focus:border-[#EACC84] focus:ring-2 focus:ring-[#EACC84]/30"
           onBlur={() => {
             window.setTimeout(() => setIsOpen(false), 140);
           }}
@@ -68,7 +68,7 @@ export function VenueSwitcher({
         />
         <button
           aria-label="Open venue list"
-          className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#0b4658] transition hover:bg-[#eefbfc]"
+          className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[#123C36] transition hover:bg-[#FCF7E8]"
           onClick={() => {
             setIsOpen((current) => !current);
             inputRef.current?.focus();
@@ -80,7 +80,12 @@ export function VenueSwitcher({
       </div>
 
       {isOpen ? (
-        <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-80 overflow-y-auto rounded-2xl border border-[#d8e9ee] bg-white p-2 shadow-[0_24px_60px_rgba(15,23,42,0.14)]">
+        <div
+          className="absolute left-0 top-full z-30 mt-2 max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-[#EACC84]/45 bg-white p-2 shadow-[0_24px_60px_rgba(18,60,54,0.14)]"
+          style={{
+            width: "max(100%, min(560px, calc(100vw - 2rem)))",
+          }}
+        >
           {filteredVenues.length > 0 ? (
             filteredVenues.map((venue) => {
               const isSelected = venue.id === selectedVenue.id;
@@ -88,19 +93,19 @@ export function VenueSwitcher({
               return (
                 <button
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[#f5fbfd]",
-                    isSelected && "bg-[#eefbfc]",
+                    "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[#FCF7E8]",
+                    isSelected && "bg-[#FCF7E8]",
                   )}
                   key={venue.id}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => selectVenue(venue)}
                   type="button"
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e2f7fb] text-[#007c92]">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#F6E4AE] text-[#123C36]">
                     <Building2 size={16} aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-black text-slate-950">
+                    <span className="block whitespace-normal break-words text-sm font-black leading-snug text-slate-950">
                       {venue.name}
                     </span>
                     <span className="block truncate text-xs font-bold text-slate-500">
@@ -108,7 +113,7 @@ export function VenueSwitcher({
                     </span>
                   </span>
                   {isSelected ? (
-                    <Check className="shrink-0 text-[#007c92]" size={17} />
+                    <Check className="shrink-0 text-[#967230]" size={17} />
                   ) : null}
                 </button>
               );

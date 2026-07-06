@@ -2,56 +2,130 @@
 
 import {
   Check,
-  CheckCircle2,
   Loader2,
   Send,
   X,
-  XCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import {
-  statusMeta,
+  StatusChoiceGroup,
   textareaClassName,
 } from "@/features/calendar/day-panel-controls";
 import type { CalendarStatus } from "@/lib/types";
 import { cn } from "@/lib/ui";
 
+const detailInputClassName =
+  "h-11 w-full rounded-2xl border border-[#d8e9ee] bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#007c92] focus:ring-4 focus:ring-[#007c92]/10";
+
 export function CalendarDayFields({
+  defaultCustomerName,
+  defaultCustomerPhone,
+  defaultDepositAmount,
+  defaultFromTime,
   defaultNote,
   defaultStatus,
+  defaultToTime,
   noteLabel,
   notePlaceholder,
 }: {
+  defaultCustomerName: string;
+  defaultCustomerPhone: string;
+  defaultDepositAmount: number | null;
+  defaultFromTime: string | null;
   defaultNote: string;
   defaultStatus: CalendarStatus;
+  defaultToTime: string | null;
   noteLabel: string;
   notePlaceholder: string;
 }) {
-  const [status, setStatus] = useState(defaultStatus);
+  const [customerName, setCustomerName] = useState(defaultCustomerName);
+  const [customerPhone, setCustomerPhone] = useState(defaultCustomerPhone);
+  const [depositAmount, setDepositAmount] = useState(
+    defaultDepositAmount === null ? "" : String(defaultDepositAmount),
+  );
+  const [fromTime, setFromTime] = useState(defaultFromTime ?? "");
+  const [toTime, setToTime] = useState(defaultToTime ?? "");
   const [note, setNote] = useState(defaultNote);
 
   return (
     <>
-      <fieldset className="grid gap-2">
-        <legend className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-          Status
-        </legend>
-        <input name="status" type="hidden" value={status} />
-        <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-2">
-          <StatusChoice
-            isSelected={status === "available"}
-            onSelect={() => setStatus("available")}
-            status="available"
-          />
-          <StatusChoice
-            isSelected={status === "booked"}
-            onSelect={() => setStatus("booked")}
-            status="booked"
-          />
+      <StatusChoiceGroup defaultStatus={defaultStatus} />
+
+      <div className="grid gap-3">
+        <div className="grid gap-3 min-[430px]:grid-cols-2">
+          <label className="grid gap-2">
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              Name
+            </span>
+            <input
+              className={detailInputClassName}
+              name="customerName"
+              onChange={(event) => setCustomerName(event.target.value)}
+              placeholder="Customer name"
+              value={customerName}
+            />
+          </label>
+
+          <label className="grid gap-2">
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              Phone
+            </span>
+            <input
+              className={detailInputClassName}
+              name="customerPhone"
+              onChange={(event) => setCustomerPhone(event.target.value)}
+              placeholder="Customer phone"
+              value={customerPhone}
+            />
+          </label>
         </div>
-      </fieldset>
+
+        <label className="grid gap-2">
+          <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+            Deposit
+          </span>
+          <input
+            className={detailInputClassName}
+            min="0"
+            name="depositAmount"
+            onChange={(event) => setDepositAmount(event.target.value)}
+            placeholder="Deposit amount"
+            step="0.01"
+            type="number"
+            value={depositAmount}
+          />
+        </label>
+
+        <div className="grid gap-3 min-[430px]:grid-cols-2">
+          <label className="grid gap-2">
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              From time
+            </span>
+            <input
+              className={detailInputClassName}
+              name="fromTime"
+              onChange={(event) => setFromTime(event.target.value)}
+              type="time"
+              value={fromTime}
+            />
+          </label>
+
+          <label className="grid gap-2">
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+              To time
+            </span>
+            <input
+              className={detailInputClassName}
+              name="toTime"
+              onChange={(event) => setToTime(event.target.value)}
+              type="time"
+              value={toTime}
+            />
+          </label>
+        </div>
+      </div>
 
       <label className="flex flex-1 flex-col gap-2">
         <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
@@ -85,7 +159,7 @@ export function CalendarSubmitButton({
   return (
     <button
       aria-disabled={pending}
-      className="mt-auto inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#007c92] px-4 text-sm font-black text-white shadow-[0_16px_32px_rgba(0,124,146,0.2)] transition hover:bg-[#00677a] disabled:cursor-wait disabled:opacity-75"
+      className="mt-auto inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#C0964E] px-4 text-sm font-black text-[#123C36] shadow-[0_16px_32px_rgba(192,150,78,0.22)] transition hover:bg-[#A87E36] disabled:cursor-wait disabled:opacity-75"
       disabled={pending}
       type="submit"
     >
@@ -132,38 +206,6 @@ export function DecisionSubmitButton({
         aria-hidden="true"
       />
       {pending ? "Working..." : isApproved ? "Approve" : "Reject"}
-    </button>
-  );
-}
-
-function StatusChoice({
-  isSelected,
-  onSelect,
-  status,
-}: {
-  isSelected: boolean;
-  onSelect: () => void;
-  status: CalendarStatus;
-}) {
-  const meta = statusMeta[status];
-  const Icon = status === "available" ? CheckCircle2 : XCircle;
-
-  return (
-    <button
-      aria-pressed={isSelected}
-      className={cn(
-        "flex min-h-[50px] min-w-0 items-center justify-center gap-2 rounded-2xl border border-[#d8e9ee] bg-[#f8fcfd] px-3 text-center transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#007c92]/10 max-[360px]:gap-1.5 max-[360px]:px-2",
-        isSelected && meta.selected.replaceAll("peer-checked:", ""),
-      )}
-      onClick={onSelect}
-      type="button"
-    >
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-white/70">
-        <Icon className="text-slate-500" size={16} aria-hidden="true" />
-      </span>
-      <span className="min-w-0 truncate text-sm font-black text-slate-950">
-        {meta.label}
-      </span>
     </button>
   );
 }

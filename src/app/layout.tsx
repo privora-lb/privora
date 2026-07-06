@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 
 import "@/app/globals.css";
@@ -7,6 +7,11 @@ import { CmsToastRouteListener } from "@/components/cms/cms-toast-route-listener
 export const metadata: Metadata = {
   title: "Reservation Tracking",
   description: "Internal venue and space reservation calendar system",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

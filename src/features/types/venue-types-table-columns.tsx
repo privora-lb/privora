@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/ui";
 
 const mobileDescriptionTextareaClassName =
-  "min-h-24 w-full resize-y rounded-xl border border-[#d8e9ee] bg-white px-3 py-2.5 text-left text-[13px] font-bold leading-5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0EA5A8] focus:ring-3 focus:ring-[#0EA5A8]/15";
+  "min-h-24 w-full resize-y rounded-xl border border-[#EACC84]/45 bg-white px-3 py-2.5 text-left text-[13px] font-bold leading-5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#C0964E] focus:ring-3 focus:ring-[#EACC84]/25";
 
 type UseVenueTypeColumnsParams = {
   clearFieldError: (rowId: string, field: VenueTypeValidationField) => void;

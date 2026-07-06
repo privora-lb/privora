@@ -1,18 +1,18 @@
 import {
-  Building2,
   CalendarDays,
   LockKeyhole,
-  ShieldCheck,
   UserRound,
 } from "lucide-react";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 
 import { loginAction } from "@/app/login/actions";
 import { PasswordInput } from "@/components/ui/password-input";
 import { getCurrentUser } from "@/lib/auth";
+import privoraProfilePicture from "../../../privora-profile-picture.jpg.jpeg";
 
 const inputClassName =
-  "h-12 w-full min-w-0 rounded-2xl border border-[#c9e5eb] bg-white px-11 text-sm font-bold text-slate-950 outline-none shadow-[0_10px_24px_rgba(15,23,42,0.05)] transition placeholder:text-slate-400 focus:border-[#007c92] focus:ring-4 focus:ring-[#007c92]/10";
+  "h-12 w-full min-w-0 rounded-2xl border border-[#EACC84]/45 bg-white px-11 text-sm font-bold text-slate-950 outline-none shadow-[0_10px_24px_rgba(18,60,54,0.06)] transition placeholder:text-slate-400 focus:border-[#C0964E] focus:ring-4 focus:ring-[#EACC84]/20";
 
 export default async function LoginPage({
   searchParams,
@@ -29,53 +29,35 @@ export default async function LoginPage({
   const hasError = params.error === "invalid";
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#eef5f6] px-3 py-4 text-slate-950 sm:px-6 sm:py-6 lg:grid lg:place-items-center lg:py-10">
-      <section className="mx-auto grid w-full max-w-md overflow-hidden rounded-[24px] border border-[#c6e9ef] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.14)] sm:max-w-xl lg:max-w-5xl lg:grid-cols-[0.9fr_1.1fr] lg:rounded-[28px]">
-        <div className="min-w-0 bg-[#123342] p-4 text-white sm:p-7 lg:p-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#e2f7fb] text-[#007c92] shadow-[0_12px_26px_rgba(0,0,0,0.16)] sm:h-12 sm:w-12">
-              <Building2 size={21} aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <p className="m-0 text-[10px] font-black uppercase tracking-[0.16em] text-[#9bdded] sm:text-[11px] sm:tracking-[0.18em]">
-                Internal access
-              </p>
-              <h1 className="m-0 mt-1 break-words text-[22px] font-black leading-tight sm:text-2xl lg:text-xl">
-                Reservation Tracking
-              </h1>
-            </div>
+    <main className="min-h-screen overflow-x-hidden bg-[#f4f2ea] px-3 py-4 text-slate-950 sm:px-6 sm:py-6 lg:grid lg:place-items-center lg:py-10">
+      <div className="w-full">
+      <section className="mx-auto grid w-full max-w-md overflow-hidden rounded-[24px] border border-[#EACC84]/45 bg-white shadow-[0_24px_70px_rgba(18,60,54,0.16)] sm:max-w-xl lg:max-w-5xl lg:grid-cols-[0.9fr_1.1fr] lg:rounded-[28px]">
+        <div className="min-w-0 bg-[#123C36] p-4 text-[#FCFCF0] sm:p-7 lg:p-8">
+          <div className="bg-[#123C36]">
+            <Image
+              alt="Privora"
+              className="mx-auto h-auto w-full max-w-[260px] rounded-none sm:max-w-[300px] lg:max-w-[320px]"
+              priority
+              sizes="(min-width: 1024px) 320px, 80vw"
+              src={privoraProfilePicture}
+            />
           </div>
 
-          <div className="mt-5 rounded-3xl border border-white/12 bg-[#0e4050] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:mt-8 sm:p-5">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/10 text-[#9bdded]">
-                <ShieldCheck size={19} aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <h2 className="m-0 text-base font-black leading-tight sm:text-lg">
-                  Secure workspace
-                </h2>
-                <p className="m-0 mt-2 text-sm font-semibold leading-6 text-[#d9f6fa]">
-                  Sign in with your account identifier and password.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-2 rounded-3xl border border-white/12 bg-white/8 p-3 text-sm sm:mt-5 sm:p-4">
-            <p className="m-0 text-[10px] font-black uppercase tracking-[0.14em] text-[#9bdded] sm:text-[11px] sm:tracking-[0.16em]">
-              Demo credentials
+          <div className="mt-4 rounded-2xl bg-[#06302A] px-4 py-3 shadow-[inset_0_1px_0_rgba(252,252,240,0.05)]">
+            <p className="m-0 text-[10px] font-black uppercase tracking-[0.16em] text-[#EACC84]">
+              Live reservation workspace
             </p>
-            <DemoCredential label="Admin" value="admin@example.com / admin123" />
-            <DemoCredential label="Owner" value="Maya Haddad / owner123" />
-            <DemoCredential label="Owner" value="karim@example.com / owner123" />
+            <p className="m-0 mt-1 text-[13px] font-semibold leading-5 text-[#FCFCF0]/78">
+              Calendar availability, owner approvals, and booking details in one
+              controlled dashboard.
+            </p>
           </div>
         </div>
 
         <div className="min-w-0 p-4 sm:p-7 lg:p-9">
           <div className="mx-auto max-w-md">
             <div className="mb-5 sm:mb-7">
-              <p className="m-0 text-[10px] font-black uppercase tracking-[0.16em] text-[#007c92] sm:text-[11px] sm:tracking-[0.18em]">
+              <p className="m-0 text-[10px] font-black uppercase tracking-[0.16em] text-[#967230] sm:text-[11px] sm:tracking-[0.18em]">
                 Welcome back
               </p>
               <h2 className="m-0 mt-2 text-[34px] font-black leading-none text-slate-950 sm:text-3xl">
@@ -100,13 +82,13 @@ export default async function LoginPage({
                 <span className="relative block">
                   <UserRound
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#007c92]"
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#967230]"
                     size={17}
                   />
                   <input
                     className={inputClassName}
                     name="identifier"
-                    placeholder="admin@example.com, phone, or Maya Haddad"
+                    placeholder="owner@example.com or 71234567"
                     type="text"
                     required
                   />
@@ -118,7 +100,7 @@ export default async function LoginPage({
                   Password
                 </span>
                 <PasswordInput
-                  buttonClassName="right-2.5 h-8 w-8 rounded-xl text-[#0b6f7d] hover:bg-[#eefbfc] hover:text-[#0b4658]"
+                  buttonClassName="right-2.5 h-8 w-8 rounded-xl text-[#967230] hover:bg-[#FCF7E8] hover:text-[#123C36]"
                   className={`${inputClassName} pr-12`}
                   name="password"
                   placeholder="Enter password"
@@ -127,7 +109,7 @@ export default async function LoginPage({
               </label>
 
               <button
-                className="mt-2 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#007c92] px-4 text-sm font-black text-white shadow-[0_16px_32px_rgba(0,124,146,0.2)] transition hover:-translate-y-px hover:bg-[#07586c] focus:outline-none focus:ring-4 focus:ring-[#007c92]/18"
+                className="mt-2 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#C0964E] px-4 text-sm font-black text-[#123C36] shadow-[0_16px_32px_rgba(192,150,78,0.22)] transition hover:-translate-y-px hover:bg-[#A87E36] focus:outline-none focus:ring-4 focus:ring-[#EACC84]/30"
                 type="submit"
               >
                 <LockKeyhole size={17} aria-hidden="true" />
@@ -135,8 +117,8 @@ export default async function LoginPage({
               </button>
             </form>
 
-            <div className="mt-6 flex items-center gap-3 rounded-2xl border border-[#d8e9ee] bg-[#f8fcfd] px-4 py-3 text-sm font-bold text-slate-600">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e2f7fb] text-[#007c92]">
+            <div className="mt-6 flex items-center gap-3 rounded-2xl border border-[#EACC84]/35 bg-[#FCFCF0] px-4 py-3 text-sm font-bold text-slate-600">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#F6E4AE] text-[#123C36]">
                 <CalendarDays size={17} aria-hidden="true" />
               </span>
               <span className="min-w-0">
@@ -146,17 +128,31 @@ export default async function LoginPage({
           </div>
         </div>
       </section>
+
+      <section className="mx-auto mt-4 w-full max-w-md rounded-[20px] border border-[#EACC84]/35 bg-white px-4 py-3 shadow-[0_12px_30px_rgba(18,60,54,0.08)] sm:max-w-xl lg:max-w-5xl">
+        <div className="grid gap-3 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center">
+          <p className="m-0 text-[10px] font-black uppercase tracking-[0.16em] text-[#967230]">
+            Testing credentials
+          </p>
+          <div className="grid gap-2 lg:grid-cols-3">
+            <CredentialRow label="Admin" value="admin@example.com / admin123" />
+            <CredentialRow label="Owner" value="Maya Haddad / owner123" />
+            <CredentialRow label="Owner" value="karim@example.com / owner123" />
+          </div>
+        </div>
+      </section>
+      </div>
     </main>
   );
 }
 
-function DemoCredential({ label, value }: { label: string; value: string }) {
+function CredentialRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid min-w-0 gap-1 rounded-2xl bg-white/8 px-3 py-2 sm:flex sm:items-center sm:justify-between sm:gap-3">
-      <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[#9bdded] sm:text-xs">
+    <div className="grid min-w-0 gap-1 rounded-xl bg-[#FCF7E8] px-3 py-2 sm:flex sm:items-center sm:justify-between sm:gap-3">
+      <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[#967230] sm:text-xs">
         {label}
       </span>
-      <span className="min-w-0 break-all text-sm font-bold leading-5 text-white sm:truncate sm:text-right">
+      <span className="min-w-0 break-all text-sm font-bold leading-5 text-[#123C36] sm:truncate sm:text-right">
         {value}
       </span>
     </div>

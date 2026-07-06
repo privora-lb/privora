@@ -31,7 +31,7 @@ export function ApprovalsTableFilters({
     <>
       <select
         aria-label="Filter requests by status"
-        className="h-9 w-[132px] shrink-0 rounded-lg border border-white/18 bg-white/92 px-2.5 text-[12px] font-semibold text-[#123342] outline-none shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition focus:border-[#9bdded] focus:ring-3 focus:ring-[#9bdded]/20 max-[640px]:w-full"
+        className="h-9 w-[132px] shrink-0 rounded-lg border border-[#EACC84]/35 bg-white/95 px-2.5 text-[12px] font-semibold text-[#123C36] outline-none shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition focus:border-[#EACC84] focus:ring-3 focus:ring-[#EACC84]/25 max-[640px]:w-full"
         onChange={(event) =>
           onStatusChange(event.target.value as RequestStatus | "all")
         }
@@ -88,12 +88,12 @@ function ApprovalVenueFilter({
     <div className="relative w-[260px] shrink-0 max-[640px]:w-full">
       <Search
         aria-hidden="true"
-        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0b6f7d]"
+        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#123C36]"
         size={15}
       />
       <input
         aria-label="Filter requests by venue"
-        className="h-9 w-full rounded-lg border border-white/18 bg-white/92 px-8 pr-9 text-[12px] font-semibold text-[#123342] outline-none shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition placeholder:text-[#6b8c98]/75 focus:border-[#9bdded] focus:ring-3 focus:ring-[#9bdded]/20"
+        className="h-9 w-full rounded-lg border border-[#EACC84]/35 bg-white px-8 pr-9 text-[12px] font-semibold text-[#123C36] outline-none shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition placeholder:text-[#123C36]/65 focus:border-[#EACC84] focus:ring-3 focus:ring-[#EACC84]/25"
         onBlur={() => {
           window.setTimeout(() => setIsOpen(false), 140);
         }}
@@ -109,7 +109,7 @@ function ApprovalVenueFilter({
       />
       <button
         aria-label="Open venue filter"
-        className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-[#0b4658] transition hover:bg-[#eefbfc]"
+        className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-[#123C36] transition hover:bg-[#FCF7E8]"
         onClick={() => {
           setIsOpen((current) => !current);
           inputRef.current?.focus();
@@ -120,7 +120,12 @@ function ApprovalVenueFilter({
       </button>
 
       {isOpen ? (
-        <div className="absolute left-0 right-0 top-full z-40 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-[#d8e9ee] bg-white p-2 shadow-[0_24px_60px_rgba(15,23,42,0.14)]">
+        <div
+          className="absolute left-0 top-full z-40 mt-2 max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-[#EACC84]/45 bg-white p-2 shadow-[0_24px_60px_rgba(18,60,54,0.14)] max-[640px]:w-full"
+          style={{
+            width: "max(100%, min(520px, calc(100vw - 2rem)))",
+          }}
+        >
           <VenueFilterOption
             isSelected={selectedVenueId === "all"}
             label="All venues"
@@ -162,18 +167,18 @@ function VenueFilterOption({
   return (
     <button
       className={cn(
-        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-[#f5fbfd]",
-        isSelected && "bg-[#eefbfc]",
+        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-[#FCF7E8]",
+        isSelected && "bg-[#FCF7E8]",
       )}
       onClick={onSelect}
       onMouseDown={(event) => event.preventDefault()}
       type="button"
     >
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#e2f7fb] text-[#007c92]">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#F6E4AE] text-[#123C36]">
         <Building2 size={15} aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-black text-slate-950">
+        <span className="block whitespace-normal break-words text-sm font-black leading-snug text-slate-950">
           {label}
         </span>
         <span className="block truncate text-xs font-bold text-slate-500">
@@ -181,7 +186,7 @@ function VenueFilterOption({
         </span>
       </span>
       {isSelected ? (
-        <Check className="shrink-0 text-[#007c92]" size={16} />
+        <Check className="shrink-0 text-[#967230]" size={16} />
       ) : null}
     </button>
   );

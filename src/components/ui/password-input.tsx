@@ -33,7 +33,7 @@ export function PasswordInput({
       <button
         aria-label={label}
         className={cn(
-          "absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0EA5A8]/20 disabled:cursor-not-allowed disabled:opacity-50",
+          "absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#EACC84]/35 disabled:cursor-not-allowed disabled:opacity-50",
           buttonClassName,
         )}
         disabled={disabled}

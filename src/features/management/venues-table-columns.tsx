@@ -7,7 +7,6 @@ import { type CmsDataTableColumn } from "@/components/cms/CmsDataTable";
 import {
   cmsTableFieldErrorClassName,
   cmsTableInputClassName,
-  cmsTableSelectClassName,
 } from "@/components/cms/cms-table-controls";
 import { AssignedUserCell } from "@/features/management/assigned-user-cell";
 import {
@@ -16,11 +15,12 @@ import {
   type VenueValidationErrors,
   type VenueValidationField,
 } from "@/features/management/venue-table-validation";
+import { VenueTypeCell } from "@/features/management/venue-type-cell";
 import type { AppUser, VenueType } from "@/lib/types";
 import { cn } from "@/lib/ui";
 
 const mobileDescriptionTextareaClassName =
-  "min-h-24 w-full resize-y rounded-xl border border-[#d8e9ee] bg-white px-3 py-2.5 text-left text-[13px] font-bold leading-5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0EA5A8] focus:ring-3 focus:ring-[#0EA5A8]/15";
+  "min-h-24 w-full resize-y rounded-xl border border-[#EACC84]/45 bg-white px-3 py-2.5 text-left text-[13px] font-bold leading-5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#C0964E] focus:ring-3 focus:ring-[#EACC84]/25";
 
 type UseVenueColumnsParams = {
   clearFieldError: (rowId: string, field: VenueValidationField) => void;
@@ -77,45 +77,28 @@ export function useVenueColumns({
       {
         key: "typeName",
         label: "Type",
-        baseWidth: 190,
-        minWidth: 160,
-        maxWidth: 320,
+        baseWidth: 260,
+        minWidth: 220,
+        maxWidth: 460,
+        grow: 0.35,
         sortable: true,
         textValue: (row) => row.typeName,
         render: (row) => {
           const error = getVenueValidationError(fieldErrors, row.id, "typeId");
 
           return (
-            <select
-              aria-invalid={Boolean(error)}
-              className={cn(
-                cmsTableSelectClassName,
-                error && cmsTableFieldErrorClassName,
-              )}
-              onChange={(event) => {
-                const nextType = types.find(
-                  (type) => type.id === event.target.value,
-                );
+            <VenueTypeCell
+              error={error}
+              onChange={(nextType) => {
                 updateDraft(row.id, {
-                  typeId: event.target.value,
-                  typeName: nextType?.name ?? row.typeName,
+                  typeId: nextType.id,
+                  typeName: nextType.name,
                 });
                 clearFieldError(row.id, "typeId");
               }}
-              title={error}
-              value={row.typeId}
-            >
-              {row.typeId ? null : (
-                <option disabled value="">
-                  Select type
-                </option>
-              )}
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
+              selectedTypeId={row.typeId}
+              types={types}
+            />
           );
         },
       },

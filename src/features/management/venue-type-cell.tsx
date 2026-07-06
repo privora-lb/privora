@@ -10,7 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import type { AppUser } from "@/lib/types";
+import type { VenueType } from "@/lib/types";
 import { cn } from "@/lib/ui";
 
 type MenuRect = {
@@ -24,37 +24,36 @@ type MenuRect = {
 const menuGap = 6;
 const menuViewportPadding = 12;
 const menuMaxHeight = 288;
+const menuMinWidth = 420;
 const menuMinHeight = 96;
 
-export function AssignedUserCell({
+export function VenueTypeCell({
   error,
   onChange,
-  selectedUserId,
-  users,
+  selectedTypeId,
+  types,
 }: {
   error?: string;
-  onChange: (user: AppUser) => void;
-  selectedUserId: string;
-  users: AppUser[];
+  onChange: (type: VenueType) => void;
+  selectedTypeId: string;
+  types: VenueType[];
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [menuRect, setMenuRect] = useState<MenuRect | null>(null);
-  const selectedUser = users.find((user) => user.id === selectedUserId);
-  const filteredUsers = useMemo(() => {
+  const selectedType = types.find((type) => type.id === selectedTypeId);
+  const filteredTypes = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
     if (!normalizedQuery) {
-      return users;
+      return types;
     }
 
-    return users.filter((user) =>
-      `${user.name} ${user.email ?? ""} ${user.phoneNumber} ${user.role}`
-        .toLowerCase()
-        .includes(normalizedQuery),
+    return types.filter((type) =>
+      `${type.name} ${type.description}`.toLowerCase().includes(normalizedQuery),
     );
-  }, [query, users]);
+  }, [query, types]);
 
   useLayoutEffect(() => {
     if (!isOpen) {
@@ -81,8 +80,8 @@ export function AssignedUserCell({
     };
   }, [isOpen]);
 
-  function selectUser(user: AppUser) {
-    onChange(user);
+  function selectType(type: VenueType) {
+    onChange(type);
     setQuery("");
     setIsOpen(false);
     inputRef.current?.blur();
@@ -97,7 +96,7 @@ export function AssignedUserCell({
       />
       <input
         aria-invalid={Boolean(error)}
-        aria-label="Assigned user"
+        aria-label="Venue type"
         className={cn(
           "min-h-[35px] w-full border-0 bg-white px-8 pr-9 text-[12px] font-bold text-[#123C36] outline-none transition placeholder:text-[#123C36]/70 focus:text-[#123C36] focus:ring-2 focus:ring-inset focus:ring-[#C0964E]/25",
           error &&
@@ -117,18 +116,14 @@ export function AssignedUserCell({
             event.currentTarget.blur();
           }
         }}
-        placeholder={
-          selectedUser
-            ? `${selectedUser.name} (${selectedUser.role})`
-            : "Search user"
-        }
+        placeholder={selectedType?.name ?? "Search type"}
         ref={inputRef}
         title={error}
         type="search"
         value={query}
       />
       <button
-        aria-label="Open assigned user list"
+        aria-label="Open venue type list"
         className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-[#123C36] transition hover:bg-[#FCF7E8]"
         onClick={() => {
           setIsOpen((current) => !current);
@@ -141,11 +136,11 @@ export function AssignedUserCell({
 
       {isOpen && menuRect && typeof document !== "undefined"
         ? createPortal(
-            <AssignedUserMenu
-              filteredUsers={filteredUsers}
+            <VenueTypeMenu
+              filteredTypes={filteredTypes}
               menuRect={menuRect}
-              onSelect={selectUser}
-              selectedUserId={selectedUserId}
+              onSelect={selectType}
+              selectedTypeId={selectedTypeId}
             />,
             document.body,
           )
@@ -154,16 +149,16 @@ export function AssignedUserCell({
   );
 }
 
-function AssignedUserMenu({
-  filteredUsers,
+function VenueTypeMenu({
+  filteredTypes,
   menuRect,
   onSelect,
-  selectedUserId,
+  selectedTypeId,
 }: {
-  filteredUsers: AppUser[];
+  filteredTypes: VenueType[];
   menuRect: MenuRect;
-  onSelect: (user: AppUser) => void;
-  selectedUserId: string;
+  onSelect: (type: VenueType) => void;
+  selectedTypeId: string;
 }) {
   const style: CSSProperties = {
     bottom: menuRect.bottom,
@@ -179,9 +174,9 @@ function AssignedUserMenu({
       role="listbox"
       style={style}
     >
-      {filteredUsers.length > 0 ? (
-        filteredUsers.map((user) => {
-          const isSelected = user.id === selectedUserId;
+      {filteredTypes.length > 0 ? (
+        filteredTypes.map((type) => {
+          const isSelected = type.id === selectedTypeId;
 
           return (
             <button
@@ -190,22 +185,21 @@ function AssignedUserMenu({
                 "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-[#FCF7E8]",
                 isSelected && "bg-[#FCF7E8]",
               )}
-              key={user.id}
-              onClick={() => onSelect(user)}
+              key={type.id}
+              onClick={() => onSelect(type)}
               onMouseDown={(event) => event.preventDefault()}
               role="option"
               type="button"
             >
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#F6E4AE] text-[11px] font-black uppercase text-[#123C36]">
-                {getInitials(user.name)}
+                {type.name.slice(0, 2)}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-black text-slate-950">
-                  {user.name}
+                <span className="block whitespace-normal break-words text-sm font-black leading-snug text-slate-950">
+                  {type.name}
                 </span>
-                <span className="block truncate text-xs font-bold text-slate-500">
-                  {user.email ? `${user.email} - ` : ""}
-                  {user.phoneNumber} - {user.role}
+                <span className="mt-0.5 block whitespace-normal break-words text-xs font-bold leading-snug text-slate-500">
+                  {type.description || "No description"}
                 </span>
               </span>
               {isSelected ? (
@@ -216,7 +210,7 @@ function AssignedUserMenu({
         })
       ) : (
         <div className="rounded-xl bg-slate-50 px-3 py-4 text-sm font-bold text-slate-500">
-          No users found.
+          No types found.
         </div>
       )}
     </div>
@@ -224,6 +218,15 @@ function AssignedUserMenu({
 }
 
 function getMenuRect(rect: DOMRect): MenuRect {
+  const viewportWidth = window.innerWidth;
+  const width = Math.min(
+    Math.max(rect.width, menuMinWidth),
+    viewportWidth - menuViewportPadding * 2,
+  );
+  const left = Math.min(
+    Math.max(rect.left, menuViewportPadding),
+    viewportWidth - width - menuViewportPadding,
+  );
   const spaceBelow = window.innerHeight - rect.bottom - menuViewportPadding;
   const spaceAbove = rect.top - menuViewportPadding;
   const shouldOpenUp = spaceBelow < 180 && spaceAbove > spaceBelow;
@@ -236,24 +239,16 @@ function getMenuRect(rect: DOMRect): MenuRect {
   if (shouldOpenUp) {
     return {
       bottom: window.innerHeight - rect.top + menuGap,
-      left: rect.left,
+      left,
       maxHeight,
-      width: rect.width,
+      width,
     };
   }
 
   return {
-    left: rect.left,
+    left,
     maxHeight,
     top: rect.bottom + menuGap,
-    width: rect.width,
+    width,
   };
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2);
 }

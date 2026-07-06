@@ -5,6 +5,10 @@ import { useMemo, type Dispatch, type SetStateAction } from "react";
 import type { CmsDataTableColumn } from "@/components/cms/CmsDataTable";
 import { cmsTableTextareaClassName } from "@/components/cms/cms-table-controls";
 import { Badge } from "@/components/ui/badge";
+import {
+  formatDeposit,
+  getTimeRange,
+} from "@/features/calendar/calendar-detail-utils";
 import { getDateLabel } from "@/lib/dates";
 import type { CalendarStatus, RequestStatus } from "@/lib/types";
 import type { ApprovalDraftRow } from "@/features/approvals/approvals-table";
@@ -57,13 +61,23 @@ export function useApprovalsColumns(
       },
       {
         key: "requestedNote",
-        label: "Request note",
-        baseWidth: 260,
+        label: "Request details",
+        baseWidth: 300,
         minWidth: 200,
-        maxWidth: 520,
+        maxWidth: 560,
         grow: 0.8,
         sortable: true,
-        textValue: (row) => row.requestedNote || "No note supplied.",
+        textValue: (row) => getRequestDetailsText(row),
+        render: (row) => (
+          <RequestDetails
+            customerName={row.requestedCustomerName}
+            customerPhone={row.requestedCustomerPhone}
+            depositAmount={row.requestedDepositAmount}
+            fromTime={row.requestedFromTime}
+            note={row.requestedNote}
+            toTime={row.requestedToTime}
+          />
+        ),
       },
       {
         key: "previousState",
@@ -73,8 +87,18 @@ export function useApprovalsColumns(
         maxWidth: 460,
         grow: 0.6,
         sortable: true,
-        textValue: (row) =>
-          `${row.previousStatus ?? "No entry"} ${row.previousNote ?? ""}`,
+        textValue: (row) => getPreviousStateText(row),
+        render: (row) => (
+          <RequestDetails
+            customerName={row.previousCustomerName ?? ""}
+            customerPhone={row.previousCustomerPhone ?? ""}
+            depositAmount={row.previousDepositAmount}
+            fromTime={row.previousFromTime}
+            note={row.previousNote ?? ""}
+            status={row.previousStatus ?? "No entry"}
+            toTime={row.previousToTime}
+          />
+        ),
       },
       {
         key: "ownerName",
@@ -127,6 +151,74 @@ export function useApprovalsColumns(
     ],
     [setDecisionNotes],
   );
+}
+
+function RequestDetails({
+  customerName,
+  customerPhone,
+  depositAmount,
+  fromTime,
+  note,
+  status,
+  toTime,
+}: {
+  customerName: string;
+  customerPhone: string;
+  depositAmount: number | null;
+  fromTime: string | null;
+  note: string;
+  status?: string;
+  toTime: string | null;
+}) {
+  const details = [
+    status ? `Status: ${status}` : "",
+    customerName ? `Name: ${customerName}` : "",
+    customerPhone ? `Phone: ${customerPhone}` : "",
+    getTimeRange(fromTime, toTime),
+    depositAmount !== null ? `Deposit: ${formatDeposit(depositAmount)}` : "",
+    note ? `Note: ${note}` : "",
+  ].filter(Boolean);
+
+  if (!details.length) {
+    return <span className="line-clamp-2 text-slate-500">No details.</span>;
+  }
+
+  return (
+    <span className="grid gap-0.5 text-[12px] font-bold leading-5 text-slate-600">
+      {details.slice(0, 3).map((detail) => (
+        <span className="line-clamp-1" key={detail}>
+          {detail}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function getRequestDetailsText(row: ApprovalDraftRow) {
+  return [
+    row.requestedCustomerName,
+    row.requestedCustomerPhone,
+    row.requestedFromTime,
+    row.requestedToTime,
+    row.requestedDepositAmount,
+    row.requestedNote,
+  ]
+    .filter((value) => value !== null && value !== "")
+    .join(" ");
+}
+
+function getPreviousStateText(row: ApprovalDraftRow) {
+  return [
+    row.previousStatus ?? "No entry",
+    row.previousCustomerName,
+    row.previousCustomerPhone,
+    row.previousFromTime,
+    row.previousToTime,
+    row.previousDepositAmount,
+    row.previousNote,
+  ]
+    .filter((value) => value !== null && value !== "")
+    .join(" ");
 }
 
 function RequestStatusBadge({ status }: { status: RequestStatus }) {

@@ -4,8 +4,11 @@ import { CalendarCheck, Clock3, Send } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import {
+  decideChangeRequestAction,
   decideChangeRequestInlineAction,
+  requestCalendarChangeAction,
   requestCalendarChangeInlineAction,
+  saveCalendarEntryAction,
   saveCalendarEntryInlineAction,
 } from "@/app/(app)/calendar/actions";
 import {
@@ -17,6 +20,7 @@ import {
   FormHeader,
   textareaClassName,
 } from "@/features/calendar/day-panel-controls";
+import { getCalendarDetailLines } from "@/features/calendar/calendar-detail-utils";
 import {
   createEntryFromRequest,
   createOptimisticEntry,
@@ -72,6 +76,20 @@ export function PendingRequestBox({
   const currentStatus = entry?.status ?? "available";
   const currentNote = entry?.note || "No current note for this day.";
   const requestNote = pendingRequest.requestedNote || "No request note supplied.";
+  const currentDetails = getCalendarDetails({
+    customerName: entry?.customerName ?? "",
+    customerPhone: entry?.customerPhone ?? "",
+    depositAmount: entry?.depositAmount ?? null,
+    fromTime: entry?.fromTime ?? null,
+    toTime: entry?.toTime ?? null,
+  });
+  const requestedDetails = getCalendarDetails({
+    customerName: pendingRequest.requestedCustomerName,
+    customerPhone: pendingRequest.requestedCustomerPhone,
+    depositAmount: pendingRequest.requestedDepositAmount,
+    fromTime: pendingRequest.requestedFromTime,
+    toTime: pendingRequest.requestedToTime,
+  });
 
   async function handleDecisionSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -122,6 +140,7 @@ export function PendingRequestBox({
           <p className="mt-1 text-sm font-black capitalize">
             Status: {currentStatus}
           </p>
+          <CalendarDetailsList details={currentDetails} emptyLabel="No current customer details." />
           <p className="mt-1 text-sm font-semibold leading-6 text-[#92400e]/80">
             Current: {currentNote}
           </p>
@@ -131,6 +150,7 @@ export function PendingRequestBox({
           <p className="mt-1 text-sm font-black capitalize">
             Change to {pendingRequest.requestedStatus}
           </p>
+          <CalendarDetailsList details={requestedDetails} emptyLabel="No requested customer details." />
           <p className="mt-1 text-sm font-semibold leading-6 text-[#92400e]/80">
             Request: {requestNote}
           </p>
@@ -139,6 +159,7 @@ export function PendingRequestBox({
 
       {canDecide ? (
         <form
+          action={decideChangeRequestAction}
           className="mt-4 grid gap-3"
           data-calendar-preserve-scroll="true"
           onSubmit={handleDecisionSubmit}
@@ -206,6 +227,7 @@ export function DirectEditForm({
 
   return (
     <form
+      action={saveCalendarEntryAction}
       className="flex flex-1 flex-col gap-5 pb-1"
       data-calendar-preserve-scroll="true"
       onSubmit={handleSubmit}
@@ -220,9 +242,14 @@ export function DirectEditForm({
       />
 
       <CalendarDayFields
+        defaultCustomerName={entry?.customerName ?? ""}
+        defaultCustomerPhone={entry?.customerPhone ?? ""}
+        defaultDepositAmount={entry?.depositAmount ?? null}
+        defaultFromTime={entry?.fromTime ?? null}
         defaultNote={entry?.note ?? ""}
         defaultStatus={entry?.status ?? "available"}
-        key={`${venue.id}:${date}:${entry?.status ?? "available"}:${entry?.note ?? ""}`}
+        defaultToTime={entry?.toTime ?? null}
+        key={`${venue.id}:${date}:${entry?.status ?? "available"}:${entry?.note ?? ""}:${entry?.customerName ?? ""}:${entry?.customerPhone ?? ""}:${entry?.depositAmount ?? ""}:${entry?.fromTime ?? ""}:${entry?.toTime ?? ""}`}
         noteLabel="Note"
         notePlaceholder="Add operational context for this date"
       />
@@ -283,6 +310,7 @@ export function RequestChangeForm({
 
   return (
     <form
+      action={requestCalendarChangeAction}
       className="flex flex-1 flex-col gap-5 pb-1"
       data-calendar-preserve-scroll="true"
       onSubmit={handleSubmit}
@@ -297,15 +325,52 @@ export function RequestChangeForm({
       />
 
       <CalendarDayFields
-        defaultNote={entry?.note ?? ""}
-        defaultStatus={entry?.status ?? "available"}
-        key={`${venue.id}:${date}:${entry?.status ?? "available"}:${entry?.note ?? ""}`}
+        defaultCustomerName={
+          pendingRequest?.requestedCustomerName ?? entry?.customerName ?? ""
+        }
+        defaultCustomerPhone={
+          pendingRequest?.requestedCustomerPhone ?? entry?.customerPhone ?? ""
+        }
+        defaultDepositAmount={
+          pendingRequest?.requestedDepositAmount ?? entry?.depositAmount ?? null
+        }
+        defaultFromTime={
+          pendingRequest?.requestedFromTime ?? entry?.fromTime ?? null
+        }
+        defaultNote={pendingRequest?.requestedNote ?? entry?.note ?? ""}
+        defaultStatus={
+          pendingRequest?.requestedStatus ?? entry?.status ?? "available"
+        }
+        defaultToTime={pendingRequest?.requestedToTime ?? entry?.toTime ?? null}
+        key={`${venue.id}:${date}:${entry?.status ?? "available"}:${entry?.note ?? ""}:${entry?.customerName ?? ""}:${entry?.customerPhone ?? ""}:${entry?.depositAmount ?? ""}:${entry?.fromTime ?? ""}:${entry?.toTime ?? ""}:${pendingRequest?.requestedCustomerName ?? ""}:${pendingRequest?.requestedCustomerPhone ?? ""}:${pendingRequest?.requestedDepositAmount ?? ""}:${pendingRequest?.requestedFromTime ?? ""}:${pendingRequest?.requestedToTime ?? ""}`}
         noteLabel="Request note"
         notePlaceholder="Explain the requested change"
       />
 
       <CalendarSubmitButton isPending={isPending} mode="request" />
     </form>
+  );
+}
+
+function getCalendarDetails(details: Parameters<typeof getCalendarDetailLines>[0]) {
+  return getCalendarDetailLines(details);
+}
+
+function CalendarDetailsList({
+  details,
+  emptyLabel,
+}: {
+  details: string[];
+  emptyLabel: string;
+}) {
+  return (
+    <div className="mt-2 grid gap-1 text-sm font-semibold leading-5 text-[#92400e]/80">
+      {details.length ? (
+        details.map((detail) => <span key={detail}>{detail}</span>)
+      ) : (
+        <span>{emptyLabel}</span>
+      )}
+    </div>
   );
 }
 

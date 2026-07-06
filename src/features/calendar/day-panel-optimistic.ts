@@ -15,6 +15,23 @@ function getNote(formData: FormData) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function getString(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getDepositAmount(formData: FormData) {
+  const value = getString(formData, "depositAmount");
+
+  return value ? Number(value) : null;
+}
+
+function getNullableString(formData: FormData, key: string) {
+  const value = getString(formData, key);
+
+  return value || null;
+}
+
 export function createOptimisticEntry(
   formData: FormData,
   entry: CalendarEntry | undefined,
@@ -28,6 +45,11 @@ export function createOptimisticEntry(
     date,
     id: entry?.id ?? `optimistic-entry-${venue.id}-${date}`,
     note: getNote(formData),
+    customerName: getString(formData, "customerName"),
+    customerPhone: getString(formData, "customerPhone"),
+    depositAmount: getDepositAmount(formData),
+    fromTime: getNullableString(formData, "fromTime"),
+    toTime: getNullableString(formData, "toTime"),
     status: getStatus(formData),
     updatedByName: user.name,
     venueId: venue.id,
@@ -43,6 +65,11 @@ export function createEntryFromRequest(
     date: request.date,
     id: entry?.id ?? `optimistic-entry-${request.venueId}-${request.date}`,
     note: request.requestedNote,
+    customerName: request.requestedCustomerName,
+    customerPhone: request.requestedCustomerPhone,
+    depositAmount: request.requestedDepositAmount,
+    fromTime: request.requestedFromTime,
+    toTime: request.requestedToTime,
     status: request.requestedStatus,
     updatedByName: request.requestedByName,
     venueId: request.venueId,
@@ -65,9 +92,19 @@ export function createOptimisticRequest(
     decisionNote: "",
     id: pendingRequest?.id ?? `optimistic-request-${venue.id}-${date}`,
     ownerName: venue.assignedUserName,
+    previousCustomerName: entry?.customerName ?? null,
+    previousCustomerPhone: entry?.customerPhone ?? null,
+    previousDepositAmount: entry?.depositAmount ?? null,
+    previousFromTime: entry?.fromTime ?? null,
+    previousToTime: entry?.toTime ?? null,
     previousNote: entry?.note ?? null,
     previousStatus: entry?.status ?? null,
     requestedByName: user.name,
+    requestedCustomerName: getString(formData, "customerName"),
+    requestedCustomerPhone: getString(formData, "customerPhone"),
+    requestedDepositAmount: getDepositAmount(formData),
+    requestedFromTime: getNullableString(formData, "fromTime"),
+    requestedToTime: getNullableString(formData, "toTime"),
     requestedNote: getNote(formData),
     requestedStatus: getStatus(formData),
     status: "pending",

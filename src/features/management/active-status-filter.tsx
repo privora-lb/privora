@@ -10,7 +10,7 @@ export function ActiveStatusFilter({
   return (
     <select
       aria-label="Filter by active status"
-      className="h-10 w-[140px] shrink-0 rounded-xl border border-white/18 bg-white/92 px-3 text-[12px] font-semibold text-[#123342] outline-none shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition focus:border-[#9bdded] focus:ring-3 focus:ring-[#9bdded]/20 max-[640px]:w-full"
+      className="h-10 w-[140px] shrink-0 rounded-xl border border-[#EACC84]/35 bg-white/95 px-3 text-[12px] font-semibold text-[#123C36] outline-none shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition focus:border-[#EACC84] focus:ring-3 focus:ring-[#EACC84]/25 max-[640px]:w-full"
       onChange={(event) =>
         onChange(event.target.value as ActiveStatusFilterValue)
       }

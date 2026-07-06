@@ -81,6 +81,7 @@ export function getActionErrorMessage(error: unknown, fallback: string) {
   }
 
   if (
+    error.message.startsWith("Deposit ") ||
     error.message.startsWith("Phone number ") ||
     error.message.startsWith("Select ") ||
     error.message.startsWith("This ") ||

@@ -46,6 +46,11 @@ CREATE TABLE IF NOT EXISTS calendar_entries (
   reservation_date date NOT NULL,
   status text NOT NULL CHECK (status IN ('booked', 'available')),
   note text NOT NULL DEFAULT '',
+  customer_name text NOT NULL DEFAULT '',
+  customer_phone text NOT NULL DEFAULT '',
+  deposit_amount numeric(12,2),
+  from_time time,
+  to_time time,
   created_by_id uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   updated_by_id uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -59,8 +64,18 @@ CREATE TABLE IF NOT EXISTS change_requests (
   reservation_date date NOT NULL,
   requested_status text NOT NULL CHECK (requested_status IN ('booked', 'available')),
   requested_note text NOT NULL DEFAULT '',
+  requested_customer_name text NOT NULL DEFAULT '',
+  requested_customer_phone text NOT NULL DEFAULT '',
+  requested_deposit_amount numeric(12,2),
+  requested_from_time time,
+  requested_to_time time,
   previous_status text CHECK (previous_status IN ('booked', 'available')),
   previous_note text,
+  previous_customer_name text,
+  previous_customer_phone text,
+  previous_deposit_amount numeric(12,2),
+  previous_from_time time,
+  previous_to_time time,
   requested_by_id uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   owner_id uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
@@ -106,6 +121,25 @@ ALTER TABLE users
 
 ALTER TABLE venues
   ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+
+ALTER TABLE calendar_entries
+  ADD COLUMN IF NOT EXISTS customer_name text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS customer_phone text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS deposit_amount numeric(12,2),
+  ADD COLUMN IF NOT EXISTS from_time time,
+  ADD COLUMN IF NOT EXISTS to_time time;
+
+ALTER TABLE change_requests
+  ADD COLUMN IF NOT EXISTS requested_customer_name text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS requested_customer_phone text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS requested_deposit_amount numeric(12,2),
+  ADD COLUMN IF NOT EXISTS requested_from_time time,
+  ADD COLUMN IF NOT EXISTS requested_to_time time,
+  ADD COLUMN IF NOT EXISTS previous_customer_name text,
+  ADD COLUMN IF NOT EXISTS previous_customer_phone text,
+  ADD COLUMN IF NOT EXISTS previous_deposit_amount numeric(12,2),
+  ADD COLUMN IF NOT EXISTS previous_from_time time,
+  ADD COLUMN IF NOT EXISTS previous_to_time time;
 
 DO $$
 BEGIN

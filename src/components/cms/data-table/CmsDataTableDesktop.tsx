@@ -71,7 +71,7 @@ export function CmsDataTableDesktop<Row>({
     <div ref={tableViewportRef} className="overflow-x-auto bg-white max-[680px]:hidden">
       <div className="min-w-full" style={{ width: `${Math.ceil(totalTableWidth)}px` }}>
         <div
-          className="grid border-b border-slate-200 bg-[#f3f7ff] text-left rtl:text-right"
+          className="grid border-b border-[#EACC84]/35 bg-[#FCF7E8] text-left rtl:text-right"
           style={{ gridTemplateColumns }}
         >
           {tableColumns.map((column, index) => (
@@ -100,12 +100,12 @@ export function CmsDataTableDesktop<Row>({
               {index < tableColumns.length - 1 ? (
                 <span
                   aria-label={resizeColumnLabel?.(column.label) ?? `Resize ${column.label}`}
-                  className="group absolute bottom-0 right-0 top-0 z-10 w-[9px] translate-x-1/2 cursor-col-resize touch-none transition hover:bg-[#0EA5A8]/10 rtl:left-0 rtl:right-auto rtl:-translate-x-1/2"
+                  className="group absolute bottom-0 right-0 top-0 z-10 w-[9px] translate-x-1/2 cursor-col-resize touch-none transition hover:bg-[#EACC84]/20 rtl:left-0 rtl:right-auto rtl:-translate-x-1/2"
                   data-resizer="true"
                   onPointerDown={(event) => startColumnResize(event, index)}
                   role="separator"
                 >
-                  <span className="pointer-events-none absolute bottom-0 left-1/2 top-0 w-px -translate-x-1/2 bg-slate-200/90 transition group-hover:w-0.5 group-hover:bg-[#0EA5A8]" />
+                  <span className="pointer-events-none absolute bottom-0 left-1/2 top-0 w-px -translate-x-1/2 bg-[#EACC84]/45 transition group-hover:w-0.5 group-hover:bg-[#C0964E]" />
                 </span>
               ) : null}
             </div>
@@ -157,8 +157,8 @@ function ColumnHeaderButton<Row>({
   return (
     <button
       className={cn(
-        "inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 truncate text-left text-[12px] font-semibold text-slate-600 transition hover:text-[#00008B] rtl:text-right",
-        sortState?.key === column.key && "text-[#00008B]",
+        "inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 truncate text-left text-[12px] font-semibold text-[#123C36]/75 transition hover:text-[#967230] rtl:text-right",
+        sortState?.key === column.key && "text-[#967230]",
       )}
       onClick={(event) => {
         if (event.detail > 1) {
@@ -216,8 +216,8 @@ function DesktopRow<Row>({
   return (
     <div
       className={cn(
-        "grid min-h-[35px] cursor-pointer border-b border-slate-100 text-[12px] font-bold text-slate-600 transition last:border-b-0 hover:bg-[#eaf6ff]",
-        rowIndex % 2 === 0 ? "bg-white" : "bg-[#f8fbff]",
+        "grid min-h-[35px] cursor-pointer border-b border-[#F0D896]/25 text-[12px] font-bold text-slate-600 transition last:border-b-0 hover:bg-[#FCF7E8]",
+        rowIndex % 2 === 0 ? "bg-white" : "bg-[#fffdf7]",
         getRowClassName?.(row),
       )}
       data-row-open-behavior={rowOpenBehavior}
@@ -227,7 +227,7 @@ function DesktopRow<Row>({
       {columns.map((column) => (
         <div
           className={cn(
-            "flex min-w-0 items-center border-r border-slate-100 px-3 rtl:border-l rtl:border-r-0",
+            "flex min-w-0 items-center border-r border-[#F0D896]/25 px-3 rtl:border-l rtl:border-r-0",
             getCellAlignment(column.align as CmsDataTableColumn<unknown>["align"]),
             column.key === "__actions" && "justify-center",
             column.className,

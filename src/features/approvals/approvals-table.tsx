@@ -25,8 +25,18 @@ export type ApprovalTableRow = {
   date: string;
   requestedStatus: CalendarStatus;
   requestedNote: string;
+  requestedCustomerName: string;
+  requestedCustomerPhone: string;
+  requestedDepositAmount: number | null;
+  requestedFromTime: string | null;
+  requestedToTime: string | null;
   previousStatus: CalendarStatus | null;
   previousNote: string | null;
+  previousCustomerName: string | null;
+  previousCustomerPhone: string | null;
+  previousDepositAmount: number | null;
+  previousFromTime: string | null;
+  previousToTime: string | null;
   requestedByName: string;
   ownerName: string;
   status: RequestStatus;

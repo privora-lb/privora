@@ -2,7 +2,7 @@
 
 import { CalendarDays } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { CmsToastStack } from "@/components/cms/CmsToastStack";
 import { useCmsToasts } from "@/components/cms/use-cms-toasts";
@@ -13,6 +13,10 @@ import {
 } from "@/features/calendar/calendar-grid";
 import { MobileCalendarView } from "@/features/calendar/mobile-calendar-view";
 import { MonthSelector } from "@/features/calendar/month-selector";
+import {
+  MobileCalendarModeToggle,
+  type MobileCalendarMode,
+} from "@/features/calendar/mobile-calendar-mode-toggle";
 import { VenueSwitcher } from "@/features/calendar/venue-switcher";
 import {
   calendarStatusColors,
@@ -31,6 +35,7 @@ import type {
 } from "@/lib/types";
 
 export function CalendarWorkspace({
+  approvedAdminBookedDates,
   canManage,
   canRequest,
   currentDateKey,
@@ -46,6 +51,7 @@ export function CalendarWorkspace({
   user,
   venues,
 }: {
+  approvedAdminBookedDates: string[];
   canManage: boolean;
   canRequest: boolean;
   currentDateKey: string;
@@ -62,6 +68,7 @@ export function CalendarWorkspace({
   venues: Venue[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(initialSelectedDate);
   const [entryOverrides, setEntryOverrides] = useState<
     Record<string, CalendarEntry | null>
@@ -96,6 +103,39 @@ export function CalendarWorkspace({
 
     return map;
   }, [pendingRequests, requestOverrides]);
+  const approvedAdminBookedDatesSet = useMemo(
+    () => new Set(approvedAdminBookedDates),
+    [approvedAdminBookedDates],
+  );
+  const statusCounts = useMemo(() => {
+    return days.reduce(
+      (counts, day) => {
+        if (!day.inMonth) {
+          return counts;
+        }
+
+        if (requestsByDate.has(day.dateKey)) {
+          counts.pending += 1;
+          return counts;
+        }
+
+        const status = entriesByDate.get(day.dateKey)?.status ?? "available";
+
+        if (status === "booked") {
+          counts.booked += 1;
+        } else {
+          counts.available += 1;
+        }
+
+        return counts;
+      },
+      { available: 0, booked: 0, pending: 0 },
+    );
+  }, [days, entriesByDate, requestsByDate]);
+  const [mobileCalendarMode, setMobileCalendarMode] =
+    useState<MobileCalendarMode>(() =>
+      searchParams.get("view") === "full" ? "full" : "compact",
+    );
   const selectedMobileDate = selectedDate ?? initialMobileDate;
   const returnTo = `/calendar?venue=${selectedVenue.id}&month=${monthKey}${
     selectedDate ? `&date=${selectedDate}` : ""
@@ -137,7 +177,12 @@ export function CalendarWorkspace({
   function selectDate(dateKey: string) {
     if (dateKey.slice(0, 7) !== monthKey) {
       router.push(
-        `/calendar?venue=${selectedVenue.id}&month=${dateKey.slice(0, 7)}&date=${dateKey}`,
+        getCalendarHref({
+          date: dateKey,
+          month: dateKey.slice(0, 7),
+          venueId: selectedVenue.id,
+          view: mobileCalendarMode,
+        }),
         { scroll: false },
       );
       return;
@@ -147,7 +192,26 @@ export function CalendarWorkspace({
     window.history.pushState(
       null,
       "",
-      `/calendar?venue=${selectedVenue.id}&month=${monthKey}&date=${dateKey}`,
+      getCalendarHref({
+        date: dateKey,
+        month: monthKey,
+        venueId: selectedVenue.id,
+        view: mobileCalendarMode,
+      }),
+    );
+  }
+
+  function changeMobileCalendarMode(nextMode: MobileCalendarMode) {
+    setMobileCalendarMode(nextMode);
+    window.history.replaceState(
+      null,
+      "",
+      getCalendarHref({
+        date: selectedMobileDate,
+        month: monthKey,
+        venueId: selectedVenue.id,
+        view: nextMode,
+      }),
     );
   }
 
@@ -184,10 +248,10 @@ export function CalendarWorkspace({
   }
 
   return (
-    <section className="overflow-visible rounded-2xl border border-[#d8e9ee] bg-white shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+    <section className="overflow-visible rounded-2xl border border-[#EACC84]/45 bg-white shadow-[0_20px_70px_rgba(18,60,54,0.1)]">
       <CmsToastStack onDismiss={dismissToast} toasts={toasts} />
       <div
-        className={`grid gap-4 border-b border-[#d8e9ee] bg-[#f5fbfd] px-5 py-3 lg:items-end max-[760px]:px-3 ${
+        className={`grid gap-4 border-b border-[#C0964E]/35 bg-[#123C36] px-5 py-3 lg:items-end max-[760px]:px-3 ${
           user.role === "superadmin"
             ? "lg:grid-cols-[minmax(220px,0.8fr)_minmax(320px,1fr)_auto]"
             : "lg:grid-cols-[minmax(220px,1fr)_auto]"
@@ -195,30 +259,33 @@ export function CalendarWorkspace({
       >
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e2f7fb] text-[#007c92] ring-1 ring-[#c4edf4]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F6E4AE] text-[#123C36] ring-1 ring-[#EACC84]/70">
               <CalendarDays size={18} aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="m-0 text-[10px] font-black uppercase tracking-[0.18em] text-[#007c92]">
+              <p className="m-0 text-[10px] font-black uppercase tracking-[0.18em] text-[#EACC84]">
                 Reservation calendar
               </p>
-              <h1 className="m-0 mt-1 truncate text-xl font-black leading-none text-slate-950">
+              <h1 className="m-0 mt-1 truncate text-xl font-black leading-none text-[#FCFCF0]">
                 {getMonthLabel(monthKey)}
               </h1>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <CalendarLegendItem
+              count={statusCounts.available}
               dotClassName={calendarStatusColors.available.dot}
               label="Available"
               labelClassName={calendarStatusColors.available.label}
             />
             <CalendarLegendItem
+              count={statusCounts.booked}
               dotClassName={calendarStatusColors.booked.dot}
               label="Booked"
               labelClassName={calendarStatusColors.booked.label}
             />
             <CalendarLegendItem
+              count={statusCounts.pending}
               dotClassName={pendingCalendarColor.dot}
               label="Pending approval"
               labelClassName={pendingCalendarColor.label}
@@ -237,16 +304,27 @@ export function CalendarWorkspace({
         ) : null}
 
         <div className="min-w-0 lg:justify-self-end">
-          <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-[#007c92]">
+          <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-[#EACC84]">
             Change date
           </span>
-          <MonthSelector monthKey={monthKey} selectedVenueId={selectedVenue.id} />
+          <MonthSelector
+            key={monthKey}
+            monthKey={monthKey}
+            selectedVenueId={selectedVenue.id}
+            view={mobileCalendarMode}
+          />
         </div>
       </div>
 
       <div className="px-5 py-4 max-[760px]:px-3">
+        <MobileCalendarModeToggle
+          mode={mobileCalendarMode}
+          onModeChange={changeMobileCalendarMode}
+        />
+
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] max-[760px]:hidden">
           <CalendarGrid
+            approvedAdminBookedDates={approvedAdminBookedDatesSet}
             currentDateKey={currentDateKey}
             days={days}
             entriesByDate={entriesByDate}
@@ -275,15 +353,37 @@ export function CalendarWorkspace({
           />
         </div>
 
-        <MobileCalendarView
-          currentMonth={currentMonth}
-          entriesByDate={entriesByDate}
-          isReadOnlyMonth={isReadOnlyMonth}
-          onSelectDate={selectDate}
-          requestsByDate={requestsByDate}
-          selectedDate={selectedMobileDate}
-          selectedWeekDays={getWeekDays(selectedMobileDate)}
-        />
+        {mobileCalendarMode === "compact" ? (
+          <MobileCalendarView
+            approvedAdminBookedDates={approvedAdminBookedDatesSet}
+            currentMonth={currentMonth}
+            entriesByDate={entriesByDate}
+            isReadOnlyMonth={isReadOnlyMonth}
+            onSelectDate={selectDate}
+            requestsByDate={requestsByDate}
+            selectedDate={selectedMobileDate}
+            selectedWeekDays={getWeekDays(selectedMobileDate)}
+          />
+        ) : (
+          <div className="hidden max-[760px]:block">
+            <div className="mb-2 rounded-2xl border border-[#d8e9ee] bg-[#f8fcfd] px-3 py-2 text-center text-[11px] font-black uppercase tracking-[0.08em] text-[#35717d]">
+              Swipe horizontally to view the full month
+            </div>
+            <div className="max-w-full overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+              <CalendarGrid
+                approvedAdminBookedDates={approvedAdminBookedDatesSet}
+                className="[-webkit-overflow-scrolling:touch]"
+                currentDateKey={currentDateKey}
+                days={days}
+                entriesByDate={entriesByDate}
+                isReadOnlyMonth={isReadOnlyMonth}
+                onSelectDate={selectDate}
+                requestsByDate={requestsByDate}
+                selectedDate={selectedMobileDate}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="mt-4 hidden max-[760px]:block">
           <DayPanel
@@ -308,11 +408,37 @@ export function CalendarWorkspace({
   );
 }
 
+function getCalendarHref({
+  date,
+  month,
+  venueId,
+  view,
+}: {
+  date?: string;
+  month: string;
+  venueId: string;
+  view: MobileCalendarMode;
+}) {
+  const params = new URLSearchParams({
+    month,
+    venue: venueId,
+    view,
+  });
+
+  if (date) {
+    params.set("date", date);
+  }
+
+  return `/calendar?${params.toString()}`;
+}
+
 function CalendarLegendItem({
+  count,
   dotClassName,
   label,
   labelClassName,
 }: {
+  count: number;
   dotClassName: string;
   label: string;
   labelClassName: string;
@@ -323,6 +449,9 @@ function CalendarLegendItem({
     >
       <span className={`h-1.5 w-1.5 rounded-full ${dotClassName}`} />
       {label}
+      <span className="ml-0.5 rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] leading-none shadow-sm">
+        {count}
+      </span>
     </span>
   );
 }

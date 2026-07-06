@@ -212,19 +212,38 @@ async function seed() {
       const createdById = venue.assignedUserId === superadminId
         ? superadminId
         : venue.assignedUserId;
+      const isBooked = index % 3 === 0;
+      const customerName = isBooked ? `Customer ${index + 1}` : "";
+      const customerPhone = isBooked
+        ? String(71000000 + index).slice(0, 8)
+        : "";
+      const depositAmount = isBooked ? 50 + index * 5 : null;
+      const fromTime = isBooked
+        ? `${String(9 + (index % 6)).padStart(2, "0")}:00`
+        : null;
+      const toTime = isBooked
+        ? `${String(12 + (index % 6)).padStart(2, "0")}:00`
+        : null;
 
       await client.query(
         `INSERT INTO calendar_entries
-          (venue_id, reservation_date, status, note, created_by_id, updated_by_id)
+          (venue_id, reservation_date, status, note, customer_name,
+           customer_phone, deposit_amount, from_time, to_time, created_by_id,
+           updated_by_id)
          VALUES
-          ($1, CURRENT_DATE + ($2::int), $3, $4, $5, $5)`,
+          ($1, CURRENT_DATE + ($2::int), $3, $4, $5, $6, $7, $8::time, $9::time, $10, $10)`,
         [
           venue.id,
           (index % 20) + 1,
-          index % 3 === 0 ? "booked" : "available",
-          index % 3 === 0
+          isBooked ? "booked" : "available",
+          isBooked
             ? `Confirmed booking for ${venue.name}`
             : `Open operating day for ${venue.name}`,
+          customerName,
+          customerPhone,
+          depositAmount,
+          fromTime,
+          toTime,
           createdById,
         ],
       );
@@ -239,22 +258,51 @@ async function seed() {
       const status = ["pending", "approved", "rejected"][index % 3];
       const requestedStatus = index % 2 === 0 ? "booked" : "available";
       const previousStatus = index % 4 === 0 ? null : requestedStatus === "booked" ? "available" : "booked";
+      const requestedCustomerName = requestedStatus === "booked"
+        ? `Requested Customer ${index + 1}`
+        : "";
+      const requestedCustomerPhone = requestedStatus === "booked"
+        ? String(72000000 + index).slice(0, 8)
+        : "";
+      const requestedDepositAmount = requestedStatus === "booked"
+        ? 100 + index * 10
+        : null;
+      const requestedFromTime = requestedStatus === "booked"
+        ? `${String(10 + (index % 5)).padStart(2, "0")}:30`
+        : null;
+      const requestedToTime = requestedStatus === "booked"
+        ? `${String(13 + (index % 5)).padStart(2, "0")}:30`
+        : null;
 
       await client.query(
         `INSERT INTO change_requests
-          (venue_id, reservation_date, requested_status, requested_note, previous_status,
-           previous_note, requested_by_id, owner_id, status, decided_by_id,
-           decided_at, decision_note, created_at, updated_at)
+          (venue_id, reservation_date, requested_status, requested_note,
+           requested_customer_name, requested_customer_phone, requested_deposit_amount,
+           requested_from_time, requested_to_time, previous_status, previous_note,
+           previous_customer_name, previous_customer_phone, previous_deposit_amount,
+           previous_from_time, previous_to_time, requested_by_id, owner_id, status,
+           decided_by_id, decided_at, decision_note, created_at, updated_at)
          VALUES
-          ($1, CURRENT_DATE + ($2::int), $3, $4, $5, $6, $7, $8, $9, $10,
-           $11, $12, now() - ($13::int * interval '1 day'), now())`,
+          ($1, CURRENT_DATE + ($2::int), $3, $4, $5, $6, $7, $8::time,
+           $9::time, $10, $11, $12, $13, $14, $15::time, $16::time, $17,
+           $18, $19, $20, $21, $22, now() - ($23::int * interval '1 day'), now())`,
         [
           venue.id,
           index + 3,
           requestedStatus,
           `${status === "pending" ? "Pending" : "Historical"} request ${index + 1} for ${venue.name}`,
+          requestedCustomerName,
+          requestedCustomerPhone,
+          requestedDepositAmount,
+          requestedFromTime,
+          requestedToTime,
           previousStatus,
           previousStatus ? `Previous ${previousStatus} note` : null,
+          previousStatus ? `Previous Customer ${index + 1}` : null,
+          previousStatus ? String(73000000 + index).slice(0, 8) : null,
+          previousStatus ? 75 + index * 5 : null,
+          previousStatus ? "09:00" : null,
+          previousStatus ? "12:00" : null,
           superadminId,
           venue.assignedUserId,
           status,

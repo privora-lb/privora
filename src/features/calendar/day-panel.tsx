@@ -76,12 +76,12 @@ export function DayPanel({
 
   return (
     <aside className="flex h-full flex-col overflow-hidden rounded-[24px] border border-[#d8e9ee] bg-white shadow-[0_18px_54px_rgba(15,23,42,0.07)]">
-      <div className="flex items-center justify-between gap-3 border-b border-[#d8e9ee] bg-[#eefbfc] px-4 py-3">
+      <div className="flex items-center justify-between gap-3 border-b border-[#C0964E]/35 bg-[#123C36] px-4 py-3">
         <div className="min-w-0">
-          <h2 className="truncate text-sm font-black text-slate-950">
+          <h2 className="truncate text-sm font-black text-[#FCFCF0]">
             {getDateLabel(date)}
           </h2>
-          <p className="mt-1 truncate text-xs font-bold text-slate-500">
+          <p className="mt-1 truncate text-xs font-bold text-[#EACC84]">
             {venue.name} · {venue.typeName}
           </p>
         </div>
@@ -116,7 +116,7 @@ export function DayPanel({
           <DirectEditForm
             date={date}
             entry={entry}
-            key={`direct-${date}-${entry?.status ?? "available"}-${entry?.note ?? ""}`}
+            key={`direct-${date}-${entry?.status ?? "available"}-${entry?.note ?? ""}-${entry?.customerName ?? ""}-${entry?.customerPhone ?? ""}-${entry?.depositAmount ?? ""}-${entry?.fromTime ?? ""}-${entry?.toTime ?? ""}`}
             onEntryChange={onEntryChange}
             onPendingRequestChange={onPendingRequestChange}
             onPendingRequestRemove={onPendingRequestRemove}
@@ -131,7 +131,7 @@ export function DayPanel({
           <RequestChangeForm
             date={date}
             entry={entry}
-            key={`request-${date}-${entry?.status ?? "available"}-${entry?.note ?? ""}`}
+            key={`request-${date}-${entry?.status ?? "available"}-${entry?.note ?? ""}-${entry?.customerName ?? ""}-${entry?.customerPhone ?? ""}-${entry?.depositAmount ?? ""}-${entry?.fromTime ?? ""}-${entry?.toTime ?? ""}-${pendingRequest?.requestedStatus ?? ""}-${pendingRequest?.requestedNote ?? ""}-${pendingRequest?.requestedCustomerName ?? ""}-${pendingRequest?.requestedCustomerPhone ?? ""}-${pendingRequest?.requestedDepositAmount ?? ""}-${pendingRequest?.requestedFromTime ?? ""}-${pendingRequest?.requestedToTime ?? ""}`}
             onEntryChange={onEntryChange}
             onPendingRequestChange={onPendingRequestChange}
             onPendingRequestRemove={onPendingRequestRemove}

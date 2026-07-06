@@ -19,6 +19,8 @@ export type CalendarGridDay = {
 };
 
 export function CalendarGrid({
+  approvedAdminBookedDates,
+  className,
   currentDateKey,
   days,
   isReadOnlyMonth,
@@ -27,6 +29,8 @@ export function CalendarGrid({
   entriesByDate,
   requestsByDate,
 }: {
+  approvedAdminBookedDates: Set<string>;
+  className?: string;
   currentDateKey: string;
   days: CalendarGridDay[];
   isReadOnlyMonth?: boolean;
@@ -36,7 +40,12 @@ export function CalendarGrid({
   requestsByDate: Map<string, ChangeRequest>;
 }) {
   return (
-    <section className="overflow-x-auto rounded-xl border border-[#d8e9ee] bg-white max-[760px]:hidden">
+    <section
+      className={cn(
+        "overflow-x-auto rounded-xl border border-[#d8e9ee] bg-white",
+        className,
+      )}
+    >
       <div className="min-w-[860px]">
         <div className="grid grid-cols-7 border-b border-[#d8e9ee] bg-[#f8fcfd]">
           {weekdayLabels.map((label) => (
@@ -56,22 +65,26 @@ export function CalendarGrid({
             const isSelected = selectedDate === day.dateKey;
             const currentStatus = entry?.status ?? "available";
             const statusStyle = calendarStatusColors[currentStatus];
-            const currentNote = entry?.note || "";
+            const showAdminBookedMarker =
+              currentStatus === "booked" &&
+              approvedAdminBookedDates.has(day.dateKey);
+            const displayCustomerName =
+              entry?.customerName || request?.requestedCustomerName || "";
+            const displayCustomerPhone =
+              entry?.customerPhone || request?.requestedCustomerPhone || "";
             const isReadOnlyDay = isReadOnlyMonth || day.dateKey < currentDateKey;
-
-            return (
-              <button
-                key={day.dateKey}
-                className={cn(
-                  "flex min-h-[132px] flex-col items-center border-b border-r border-[#e1eef2] p-3 text-center transition last:border-r-0 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#007c92]",
-                  day.inMonth
-                    ? statusStyle.cell
-                    : "bg-slate-50 text-slate-400 opacity-70",
-                  isSelected && "ring-2 ring-inset ring-[#007c92]",
-                )}
-                onClick={() => onSelectDate(day.dateKey)}
-                type="button"
-              >
+            const cellClassName = cn(
+              "relative flex min-h-[132px] touch-manipulation flex-col items-center border-b border-r border-[#e1eef2] p-3 text-center transition last:border-r-0 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#007c92]",
+              day.inMonth
+                ? statusStyle.cell
+                : "bg-slate-50 text-slate-400 opacity-70",
+              isSelected && "ring-2 ring-inset ring-[#007c92]",
+            );
+            const cellContent = (
+              <>
+                {day.inMonth && showAdminBookedMarker ? (
+                  <AdminBookedMarker />
+                ) : null}
                 <span
                   className={cn(
                     "inline-grid h-8 min-w-8 place-items-center rounded-lg border px-2 text-[13px] font-black shadow-[0_8px_18px_rgba(15,23,42,0.07)]",
@@ -103,13 +116,14 @@ export function CalendarGrid({
                         </span>
                       ) : null}
                     </div>
-                    {currentNote ? (
-                      <span className="line-clamp-1 max-w-full text-center text-[11px] font-bold leading-[1.35] text-slate-700">
-                        {currentNote}
-                      </span>
+                    {displayCustomerName || displayCustomerPhone ? (
+                      <CustomerSummary
+                        name={displayCustomerName}
+                        phone={displayCustomerPhone}
+                      />
                     ) : !request && entry ? (
                       <span className="text-center text-[11px] font-bold text-slate-500">
-                        No note added
+                        No customer details
                       </span>
                     ) : !request && isReadOnlyDay ? (
                       <span className="text-center text-[11px] font-black text-[#337946]">
@@ -130,12 +144,52 @@ export function CalendarGrid({
                     ) : null}
                   </div>
                 ) : null}
+              </>
+            );
+
+            return (
+              <button
+                key={day.dateKey}
+                className={cellClassName}
+                onClick={() => onSelectDate(day.dateKey)}
+                type="button"
+              >
+                {cellContent}
               </button>
             );
           })}
         </div>
       </div>
     </section>
+  );
+}
+
+function AdminBookedMarker() {
+  return (
+    <span
+      aria-label="Booked by superadmin request"
+      className="absolute left-2.5 top-2.5 z-10 grid h-5 w-5 place-items-center rounded-full bg-[#2563eb] text-[10px] font-black leading-none text-white shadow-[0_8px_16px_rgba(37,99,235,0.28)] ring-2 ring-white/80"
+      title="Booked by superadmin request"
+    >
+      P
+    </span>
+  );
+}
+
+function CustomerSummary({ name, phone }: { name: string; phone: string }) {
+  return (
+    <span className="grid max-w-full justify-items-center gap-0.5 text-center leading-tight">
+      {name ? (
+        <span className="line-clamp-1 max-w-full text-[11px] font-black text-slate-800">
+          {name}
+        </span>
+      ) : null}
+      {phone ? (
+        <span className="line-clamp-1 max-w-full text-[10px] font-bold text-slate-500">
+          {phone}
+        </span>
+      ) : null}
+    </span>
   );
 }
 

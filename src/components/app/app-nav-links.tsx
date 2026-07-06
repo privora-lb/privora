@@ -1,10 +1,11 @@
 "use client";
 
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import type { ReactNode } from "react";
 
+import { ApprovalPendingBadge } from "@/components/app/approval-pending-badge";
 import type { UserRole } from "@/lib/types";
 import { cn } from "@/lib/ui";
 
@@ -21,14 +22,19 @@ const superadminLinks = [
 ];
 
 export function AppNavLinks({
+  initialPendingApprovalsCount,
   ownerSelectedVenueId,
+  ownerVenueIds,
   role,
+  whatsAppLink,
 }: {
+  initialPendingApprovalsCount: number;
   ownerSelectedVenueId?: string;
+  ownerVenueIds: string[];
   role: UserRole;
+  whatsAppLink?: ReactNode;
 }) {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
   const links =
     role === "superadmin"
       ? superadminLinks
@@ -42,31 +48,19 @@ export function AppNavLinks({
   return (
     <nav
       aria-label="Main navigation"
-      className="contents lg:flex lg:min-w-0 lg:justify-center lg:px-6"
+      className="relative z-50 order-1 lg:order-none lg:flex lg:min-w-0 lg:justify-center lg:px-4 xl:px-6"
     >
-      <button
-        aria-expanded={isOpen}
-        aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
-        className={cn(
-          "order-1 grid h-10 w-10 place-items-center rounded-full border border-white/14 bg-white/92 text-[#0b4658] shadow-[0_10px_24px_rgba(0,0,0,0.14)] transition hover:bg-[#e2f7fb] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 lg:hidden",
-          isOpen && "border-[#9bdded] bg-[#e2f7fb] text-[#007c92]",
-        )}
-        onClick={() => setIsOpen((current) => !current)}
-        type="button"
+      <input className="peer sr-only" id="main-navigation-toggle" type="checkbox" />
+      <label
+        aria-label="Toggle navigation menu"
+        className="grid h-10 w-10 cursor-pointer place-items-center rounded-full border border-[#EACC84]/35 bg-[#FCFCF0] text-[#123C36] shadow-[0_10px_24px_rgba(0,0,0,0.14)] transition hover:bg-[#F6E4AE] peer-checked:border-[#EACC84] peer-checked:bg-[#F6E4AE] focus-within:outline-none focus-within:ring-2 focus-within:ring-[#EACC84]/50 lg:hidden"
+        htmlFor="main-navigation-toggle"
       >
-        {isOpen ? (
-          <X size={18} strokeWidth={2.6} aria-hidden="true" />
-        ) : (
-          <Menu size={19} strokeWidth={2.6} aria-hidden="true" />
-        )}
-      </button>
-
+        <Menu size={19} strokeWidth={2.6} aria-hidden="true" />
+      </label>
       <div
         className={cn(
-          "order-3 basis-full overflow-hidden rounded-[18px] border border-white/12 bg-[#0e4050] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-[max-height,opacity,transform,margin] duration-300 ease-out lg:flex lg:max-h-none lg:basis-auto lg:translate-y-0 lg:items-center lg:justify-center lg:gap-9 lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:opacity-100 lg:shadow-none lg:transition-none",
-          isOpen
-            ? "mt-2 max-h-80 p-2 opacity-100 translate-y-0"
-            : "mt-0 max-h-0 p-0 opacity-0 -translate-y-1 pointer-events-none lg:pointer-events-auto",
+          "invisible pointer-events-none fixed left-3 right-3 top-[74px] z-[70] max-h-0 -translate-y-2 overflow-hidden rounded-[18px] border border-[#EACC84]/20 bg-[#06302A] p-0 opacity-0 shadow-[0_24px_60px_rgba(18,60,54,0.24),inset_0_1px_0_rgba(252,252,240,0.06)] transition-[max-height,opacity,transform,padding,visibility] duration-300 ease-out peer-checked:visible peer-checked:pointer-events-auto peer-checked:max-h-80 peer-checked:translate-y-0 peer-checked:p-2 peer-checked:opacity-100 lg:visible lg:pointer-events-auto lg:static lg:flex lg:max-h-none lg:translate-y-0 lg:items-center lg:justify-center lg:gap-5 lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:opacity-100 lg:shadow-none lg:transition-none xl:gap-7",
         )}
       >
         <div className="grid gap-1 lg:contents">
@@ -79,19 +73,32 @@ export function AppNavLinks({
               <Link
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex h-11 items-center justify-center rounded-xl px-4 text-sm font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9bdded]/70 lg:inline-flex lg:h-12 lg:rounded-none lg:px-1 lg:text-base lg:font-semibold xl:text-lg",
+                  "flex h-11 items-center justify-center rounded-xl px-4 text-sm font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EACC84]/70 lg:inline-flex lg:h-12 lg:rounded-none lg:px-1 lg:text-[13px] lg:font-semibold xl:text-sm",
                   isActive
-                    ? "bg-[#e2f7fb] text-[#073947] shadow-[0_10px_24px_rgba(0,0,0,0.14)] lg:bg-transparent lg:font-black lg:text-white lg:shadow-none lg:[text-shadow:0_1px_18px_rgba(155,221,237,0.26)]"
-                    : "text-[#c2dce3] hover:bg-white/10 hover:text-white lg:text-[#9bbdc8] lg:hover:bg-transparent lg:hover:text-[#e8fbfd]",
+                    ? "bg-[#EACC84] text-[#123C36] shadow-[0_10px_24px_rgba(0,0,0,0.14)] lg:bg-transparent lg:font-black lg:text-[#FCFCF0] lg:shadow-none lg:[text-shadow:0_1px_18px_rgba(234,204,132,0.28)]"
+                    : "text-[#EACC84]/78 hover:bg-white/10 hover:text-[#FCFCF0] lg:text-[#EACC84]/72 lg:hover:bg-transparent lg:hover:text-[#FCFCF0]",
                 )}
                 href={item.href}
                 key={itemPath}
-                onClick={() => setIsOpen(false)}
               >
-                <span className="leading-none">{item.label}</span>
+                <span className="relative inline-flex items-center justify-center leading-none">
+                  {item.label}
+                  {itemPath === "/approvals" ? (
+                    <ApprovalPendingBadge
+                      initialCount={initialPendingApprovalsCount}
+                      key={`${role}:${ownerSelectedVenueId ?? "all"}:${initialPendingApprovalsCount}`}
+                      ownerSelectedVenueId={ownerSelectedVenueId}
+                      ownerVenueIds={ownerVenueIds}
+                      role={role}
+                    />
+                  ) : null}
+                </span>
               </Link>
             );
           })}
+          {whatsAppLink ? (
+            <div className="lg:hidden">{whatsAppLink}</div>
+          ) : null}
         </div>
       </div>
     </nav>

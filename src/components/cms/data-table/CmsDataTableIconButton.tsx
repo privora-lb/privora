@@ -18,7 +18,7 @@ export function CmsDataTableIconButton({
       {...props}
       aria-label={label}
       className={cn(
-        "group relative grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-[0_10px_22px_rgba(15,23,42,0.08)] transition hover:-translate-y-px hover:border-[#00008B]/30 hover:bg-[#f3f7ff] hover:text-[#00008B] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0",
+        "group relative grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg border border-[#EACC84]/35 bg-white text-slate-700 shadow-[0_10px_22px_rgba(18,60,54,0.08)] transition hover:-translate-y-px hover:border-[#C0964E]/45 hover:bg-[#FCF7E8] hover:text-[#967230] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0",
         className,
       )}
       title={label}

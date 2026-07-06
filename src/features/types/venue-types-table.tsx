@@ -244,7 +244,7 @@ export function VenueTypesTable({ types }: { types: VenueType[] }) {
 
               return (
                 <CmsDataTableIconButton
-                  className="h-7 w-7 rounded-md text-[#1f4f8f]"
+                  className="h-7 w-7 rounded-md text-[#967230]"
                   disabled={Boolean(pendingSaveId)}
                   label={row.isNew ? "Create type" : "Save type"}
                   onClick={(event) => saveType(row, event)}

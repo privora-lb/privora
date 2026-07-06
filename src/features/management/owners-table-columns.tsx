@@ -20,7 +20,7 @@ import {
 import type { AppUser, Venue } from "@/lib/types";
 
 const cmsTablePasswordInputClassName =
-  "min-h-[35px] w-full border-0 bg-transparent px-3 pr-9 text-[12px] font-bold text-slate-700 outline-none transition placeholder:text-slate-400 focus:bg-white focus:text-slate-950 focus:ring-2 focus:ring-inset focus:ring-[#0EA5A8]/20";
+  "min-h-[35px] w-full border-0 bg-transparent px-3 pr-9 text-[12px] font-bold text-slate-700 outline-none transition placeholder:text-slate-400 focus:bg-white focus:text-slate-950 focus:ring-2 focus:ring-inset focus:ring-[#C0964E]/25";
 
 type UseOwnerColumnsParams = {
   clearFieldError: (rowId: string, field: OwnerValidationField) => void;
@@ -209,7 +209,7 @@ export function useOwnerColumns({
           return (
             <PasswordInput
               aria-invalid={Boolean(error)}
-              buttonClassName="right-1.5 h-7 w-7 text-[#0b6f7d] hover:bg-[#eefbfc] hover:text-[#0b4658]"
+              buttonClassName="right-1.5 h-7 w-7 text-[#967230] hover:bg-[#FCF7E8] hover:text-[#123C36]"
               className={getOwnerInputClassName(
                 cmsTablePasswordInputClassName,
                 error,

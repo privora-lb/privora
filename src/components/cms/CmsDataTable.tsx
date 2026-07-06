@@ -77,7 +77,7 @@ export function CmsDataTable<Row>({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.09)]",
+        "overflow-hidden rounded-[14px] border border-[#EACC84]/40 bg-white shadow-[0_18px_48px_rgba(18,60,54,0.1)]",
         className,
       )}
     >

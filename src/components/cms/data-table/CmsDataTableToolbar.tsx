@@ -41,7 +41,7 @@ export function CmsDataTableToolbar<Row>({
   return (
     <div
       className={cn(
-        "overflow-visible border-b border-[#0f6f7d]/45 bg-[#123342] px-4 py-3 text-white max-[640px]:px-3",
+        "overflow-visible border-b border-[#C0964E]/35 bg-[#123C36] px-4 py-3 text-[#FCFCF0] max-[640px]:px-3",
         toolbarSingleLine && "overflow-visible",
       )}
     >
@@ -55,7 +55,7 @@ export function CmsDataTableToolbar<Row>({
         {onAdd && addLabel ? (
           <button
             className={cn(
-              "inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#9bdded] bg-[#e2f7fb] px-3.5 py-2 text-[12px] font-black text-[#007c92] shadow-[0_16px_30px_rgba(0,124,146,0.12)] transition hover:-translate-y-px hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 max-[640px]:w-full",
+              "inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#EACC84] bg-[#C0964E] px-3.5 py-2 text-[12px] font-black text-[#123C36] shadow-[0_16px_30px_rgba(192,150,78,0.2)] transition hover:-translate-y-px hover:bg-[#EACC84] disabled:cursor-not-allowed disabled:opacity-60 max-[640px]:w-full",
               toolbarSingleLine && "min-h-9 rounded-lg px-2.5 text-[11px] max-[640px]:min-h-10",
             )}
             data-add-behavior={addBehavior}
@@ -72,8 +72,8 @@ export function CmsDataTableToolbar<Row>({
             aria-label={searchLabel}
             className={cn(
               toolbarSingleLine
-                ? "flex min-h-9 min-w-0 flex-[1_1_420px] items-center overflow-hidden rounded-lg border border-white/18 bg-white/92 shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition focus-within:border-[#9bdded] focus-within:ring-3 focus-within:ring-[#9bdded]/20 max-[900px]:w-full max-[640px]:min-h-10"
-                : "flex min-h-10 min-w-0 flex-[1_1_480px] items-center overflow-hidden rounded-xl border border-white/18 bg-white/92 shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition focus-within:border-[#9bdded] focus-within:ring-3 focus-within:ring-[#9bdded]/20 max-[920px]:w-full",
+                ? "flex min-h-9 min-w-0 flex-[1_1_420px] items-center overflow-hidden rounded-lg border border-[#EACC84]/35 bg-white shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition focus-within:border-[#EACC84] focus-within:ring-3 focus-within:ring-[#EACC84]/20 max-[900px]:w-full max-[640px]:min-h-10"
+                : "flex min-h-10 min-w-0 flex-[1_1_480px] items-center overflow-hidden rounded-xl border border-[#EACC84]/35 bg-white shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition focus-within:border-[#EACC84] focus-within:ring-3 focus-within:ring-[#EACC84]/20 max-[920px]:w-full",
             )}
             role="search"
           >
@@ -83,8 +83,8 @@ export function CmsDataTableToolbar<Row>({
             <select
               className={cn(
                 toolbarSingleLine
-                  ? "min-h-9 w-[92px] shrink-0 cursor-pointer border-0 bg-transparent px-2 text-[11px] font-semibold text-[#123342] outline-none max-[640px]:min-h-10 max-[390px]:w-[82px]"
-                  : "min-h-10 w-[140px] shrink-0 cursor-pointer border-0 bg-transparent px-3 text-[12px] font-semibold text-[#123342] outline-none max-[520px]:w-[112px] max-[390px]:w-[92px]",
+                  ? "min-h-9 w-[92px] shrink-0 cursor-pointer border-0 bg-transparent px-2 text-[11px] font-semibold text-[#123C36] outline-none max-[640px]:min-h-10 max-[390px]:w-[82px]"
+                  : "min-h-10 w-[140px] shrink-0 cursor-pointer border-0 bg-transparent px-3 text-[12px] font-semibold text-[#123C36] outline-none max-[520px]:w-[112px] max-[390px]:w-[92px]",
               )}
               id={`${tableDomId}-search-by`}
               onChange={(event) => onSearchOptionChange(event.target.value)}
@@ -96,21 +96,21 @@ export function CmsDataTableToolbar<Row>({
                 </option>
               ))}
             </select>
-            <span className="h-6 w-px shrink-0 bg-[#c9e5eb]" aria-hidden="true" />
+            <span className="h-6 w-px shrink-0 bg-[#EACC84]/45" aria-hidden="true" />
             <label className="sr-only" htmlFor={`${tableDomId}-search-query`}>
               {searchLabel}
             </label>
             <div className="flex min-w-0 flex-1 items-center gap-2 px-2.5">
               <Search
                 size={15}
-                className="shrink-0 text-[#0b6f7d]"
+                className="shrink-0 text-[#123C36]"
                 aria-hidden="true"
               />
               <input
                 className={cn(
                   toolbarSingleLine
-                    ? "min-h-9 min-w-0 flex-1 border-0 bg-transparent text-[11px] font-bold text-[#123342] outline-none placeholder:text-[#6b8c98]/70"
-                    : "min-h-10 min-w-0 flex-1 border-0 bg-transparent text-[12px] font-bold text-[#123342] outline-none placeholder:text-[#6b8c98]/70",
+                    ? "min-h-9 min-w-0 flex-1 border-0 bg-transparent text-[11px] font-bold text-[#123C36] outline-none placeholder:text-[#123C36]/55"
+                    : "min-h-10 min-w-0 flex-1 border-0 bg-transparent text-[12px] font-bold text-[#123C36] outline-none placeholder:text-[#123C36]/55",
                 )}
                 id={`${tableDomId}-search-query`}
                 onChange={(event) => onSearchQueryChange(event.target.value)}

@@ -50,7 +50,7 @@ export function CmsDataTableFooter({
   title,
 }: CmsDataTableFooterProps) {
   return (
-    <div className="grid grid-cols-[minmax(130px,0.45fr)_minmax(220px,1fr)_auto] items-center gap-3 border-t border-slate-200 bg-[#f8fbff] px-4 py-3 max-[980px]:grid-cols-1 max-[680px]:gap-2 max-[680px]:px-3">
+    <div className="grid grid-cols-[minmax(130px,0.45fr)_minmax(220px,1fr)_auto] items-center gap-3 border-t border-[#EACC84]/35 bg-[#FCF7E8] px-4 py-3 max-[980px]:grid-cols-1 max-[680px]:gap-2 max-[680px]:px-3">
       <p className="m-0 text-[13px] font-black text-slate-500">
         {showingLabel ? (
           showingLabel(firstRow, lastRow, filteredTotal)
@@ -64,7 +64,7 @@ export function CmsDataTableFooter({
       <div className="min-w-0 text-center max-[980px]:text-left max-[680px]:hidden rtl:max-[980px]:text-right">
         <div className="flex min-w-0 items-baseline justify-center gap-2 max-[980px]:justify-start rtl:max-[980px]:justify-end">
           {eyebrow ? (
-            <span className="shrink-0 text-[10px] font-black uppercase text-[#0b6f7d]">
+            <span className="shrink-0 text-[10px] font-black uppercase text-[#967230]">
               {eyebrow}
             </span>
           ) : null}
@@ -97,7 +97,7 @@ export function CmsDataTableFooter({
           <span className="max-[680px]:sr-only">{pageLabel}</span>
           <input
             aria-label={pageInputLabel}
-            className="min-h-8 w-16 rounded-md border border-slate-200 bg-white px-2 text-center text-[13px] font-black text-slate-950 outline-none transition [appearance:textfield] focus:border-[#0EA5A8] focus:ring-2 focus:ring-[#0EA5A8]/20 max-[680px]:w-14 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="min-h-8 w-16 rounded-md border border-[#EACC84]/45 bg-white px-2 text-center text-[13px] font-black text-slate-950 outline-none transition [appearance:textfield] focus:border-[#C0964E] focus:ring-2 focus:ring-[#EACC84]/25 max-[680px]:w-14 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             inputMode="numeric"
             max={pageCount}
             min={1}

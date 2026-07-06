@@ -272,7 +272,7 @@ export function VenuesTable({
 
               return (
                 <CmsDataTableIconButton
-                  className="h-7 w-7 rounded-md text-[#1f4f8f]"
+                  className="h-7 w-7 rounded-md text-[#967230]"
                   disabled={Boolean(pendingSaveId)}
                   label={row.isNew ? "Create venue" : "Save venue"}
                   onClick={(event) => saveVenue(row, event)}

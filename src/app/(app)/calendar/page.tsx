@@ -12,6 +12,7 @@ import {
   todayKey,
 } from "@/lib/dates";
 import {
+  getApprovedSuperadminBookedDatesForVenue,
   getCalendarEntries,
   getPendingRequestsForVenue,
 } from "@/lib/data/calendar";
@@ -84,9 +85,18 @@ export default async function CalendarPage({
   const selectedDate =
     requestedDate ?? (monthKey === currentMonthKey ? currentDateKey : undefined);
   const range = getMonthRange(monthKey);
-  const [entries, pendingRequests] = await Promise.all([
+  const shouldShowAdminBookedMarkers =
+    selectedVenue.assignedUserRole === "owner";
+  const [entries, pendingRequests, approvedAdminBookedDates] = await Promise.all([
     getCalendarEntries(selectedVenue.id, range.start, range.end),
     getPendingRequestsForVenue(selectedVenue.id, range.start, range.end),
+    shouldShowAdminBookedMarkers
+      ? getApprovedSuperadminBookedDatesForVenue(
+          selectedVenue.id,
+          range.start,
+          range.end,
+        )
+      : [],
   ]);
 
   const selectedMobileDate =
@@ -101,12 +111,14 @@ export default async function CalendarPage({
   }));
   const calendarDataVersion = [
     ...entries.map(
-      (entry) => `e:${entry.date}:${entry.status}:${entry.note}`,
+      (entry) =>
+        `e:${entry.date}:${entry.status}:${entry.note}:${entry.customerName}:${entry.customerPhone}:${entry.depositAmount ?? ""}:${entry.fromTime ?? ""}:${entry.toTime ?? ""}`,
     ),
     ...pendingRequests.map(
       (request) =>
-        `r:${request.id}:${request.date}:${request.requestedStatus}:${request.requestedNote}`,
+        `r:${request.id}:${request.date}:${request.requestedStatus}:${request.requestedNote}:${request.requestedCustomerName}:${request.requestedCustomerPhone}:${request.requestedDepositAmount ?? ""}:${request.requestedFromTime ?? ""}:${request.requestedToTime ?? ""}`,
     ),
+    ...approvedAdminBookedDates.map((date) => `p:${date}`),
   ].join("|");
 
   return (
@@ -119,6 +131,7 @@ export default async function CalendarPage({
         currentMonthKey={currentMonthKey}
         days={days}
         entries={entries}
+        approvedAdminBookedDates={approvedAdminBookedDates}
         initialMobileDate={selectedMobileDate}
         initialSelectedDate={selectedDate}
         isReadOnlyMonth={isReadOnlyMonth}

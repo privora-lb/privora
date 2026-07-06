@@ -58,7 +58,7 @@ export function OwnerActivationModal({
 
             return (
               <div
-                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition hover:bg-[#f8fbff]"
+                className="flex items-center justify-between gap-3 rounded-xl border border-[#EACC84]/40 bg-white px-3 py-2.5 transition hover:bg-[#FCF7E8]"
                 key={venue.id}
               >
                 <span className="min-w-0">

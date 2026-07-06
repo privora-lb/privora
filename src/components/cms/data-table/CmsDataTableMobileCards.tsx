@@ -41,7 +41,7 @@ export function CmsDataTableMobileCards<Row>({
   title,
 }: CmsDataTableMobileCardsProps<Row>) {
   return (
-    <div className="hidden gap-3 bg-[#f8fbff] p-3 max-[680px]:grid">
+    <div className="hidden gap-3 bg-[#FCF7E8] p-3 max-[680px]:grid">
       {pagedRows.length ? (
         pagedRows.map((row, rowIndex) => (
           <MobileRow
@@ -93,9 +93,9 @@ function MobileRow<Row>({
   return (
     <article
       className={cn(
-        "overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-[0_16px_36px_rgba(15,23,42,0.08)] transition",
+        "overflow-hidden rounded-2xl border border-[#EACC84]/35 bg-white text-slate-700 shadow-[0_16px_36px_rgba(18,60,54,0.09)] transition",
         onRowDoubleClick && "cursor-pointer active:scale-[0.995]",
-        rowIndex % 2 === 0 ? "bg-white" : "bg-[#fbfdff]",
+        rowIndex % 2 === 0 ? "bg-white" : "bg-[#fffdf7]",
         getRowClassName?.(row),
       )}
       data-row-open-behavior={rowOpenBehavior}
@@ -104,9 +104,9 @@ function MobileRow<Row>({
       role={onRowDoubleClick ? "button" : undefined}
       tabIndex={onRowDoubleClick ? 0 : undefined}
     >
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 bg-[#f5fbfd] px-3 py-3">
+      <div className="flex items-start justify-between gap-3 border-b border-[#EACC84]/30 bg-[#FCF7E8] px-3 py-3">
         <div className="min-w-0">
-          <p className="m-0 text-[10px] font-black uppercase tracking-[0.08em] text-[#0b6f7d]">
+          <p className="m-0 text-[10px] font-black uppercase tracking-[0.08em] text-[#967230]">
             {primaryColumn?.label ?? title}
           </p>
           <p className="m-0 mt-1 break-words text-[14px] font-black leading-snug text-slate-950">
@@ -122,7 +122,7 @@ function MobileRow<Row>({
 
           return (
             <div
-              className="grid gap-1.5 rounded-xl border border-slate-100 bg-white px-3 py-2.5"
+              className="grid gap-1.5 rounded-xl border border-[#F0D896]/30 bg-white px-3 py-2.5"
               key={column.key}
             >
               <dt className="min-w-0 text-center text-[10px] font-black uppercase leading-snug text-slate-400">
