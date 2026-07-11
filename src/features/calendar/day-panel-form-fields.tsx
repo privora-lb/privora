@@ -17,7 +17,7 @@ import type { CalendarStatus } from "@/lib/types";
 import { cn } from "@/lib/ui";
 
 const detailInputClassName =
-  "h-11 w-full rounded-2xl border border-[#d8e9ee] bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#007c92] focus:ring-4 focus:ring-[#007c92]/10";
+  "h-11 w-full min-w-0 rounded-2xl border border-[#d8e9ee] bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#007c92] focus:ring-4 focus:ring-[#007c92]/10";
 
 export function CalendarDayFields({
   defaultCustomerName,
@@ -55,7 +55,7 @@ export function CalendarDayFields({
 
       <div className="grid gap-3">
         <div className="grid gap-3 min-[430px]:grid-cols-2">
-          <label className="grid gap-2">
+          <label className="grid min-w-0 gap-2">
             <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
               Name
             </span>
@@ -68,7 +68,7 @@ export function CalendarDayFields({
             />
           </label>
 
-          <label className="grid gap-2">
+          <label className="grid min-w-0 gap-2">
             <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
               Phone
             </span>
@@ -98,8 +98,8 @@ export function CalendarDayFields({
           />
         </label>
 
-        <div className="grid gap-3 min-[430px]:grid-cols-2">
-          <label className="grid gap-2">
+        <div className="grid gap-3 min-[480px]:grid-cols-2">
+          <label className="grid min-w-0 gap-2">
             <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
               From time
             </span>
@@ -112,7 +112,7 @@ export function CalendarDayFields({
             />
           </label>
 
-          <label className="grid gap-2">
+          <label className="grid min-w-0 gap-2">
             <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
               To time
             </span>
