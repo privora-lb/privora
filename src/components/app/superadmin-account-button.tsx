@@ -26,32 +26,22 @@ export function SuperadminAccountButton({
   user: AppUser;
 }) {
   const { dismissToast, pushToast, toasts } = useCmsToasts();
-  const toggleRef = useRef<HTMLInputElement>(null);
-  const toggleId = `superadmin-account-toggle-${user.id}`;
-
-  function closeModal() {
-    if (toggleRef.current) {
-      toggleRef.current.checked = false;
-    }
-  }
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
       <CmsToastStack onDismiss={dismissToast} toasts={toasts} />
-      <input
-        className="peer sr-only"
-        id={toggleId}
-        ref={toggleRef}
-        type="checkbox"
-      />
-      <label
+      <button
         aria-label="Change password"
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
         className={cn(
-          "flex cursor-pointer items-center gap-2 rounded-full border border-[#EACC84]/35 bg-[#FCFCF0] text-left text-slate-950 shadow-[0_10px_24px_rgba(0,0,0,0.14)] transition hover:bg-[#F6E4AE] peer-focus-visible:ring-2 peer-focus-visible:ring-[#EACC84]/45",
+          "flex cursor-pointer items-center gap-2 rounded-full border border-[#EACC84]/35 bg-[#FCFCF0] text-left text-slate-950 shadow-[0_10px_24px_rgba(0,0,0,0.14)] transition hover:bg-[#F6E4AE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EACC84]/45",
           compact ? "p-1.5 sm:px-2" : "px-3 py-1.5",
         )}
-        htmlFor={toggleId}
+        onClick={() => setIsOpen(true)}
         title="Change password"
+        type="button"
       >
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#C0964E] text-[11px] font-black text-[#123C36]">
           {getInitials(user.name)}
@@ -64,12 +54,13 @@ export function SuperadminAccountButton({
             {user.role}
           </span>
         </span>
-      </label>
-      <ChangePasswordModal
-        onClose={closeModal}
-        pushToast={pushToast}
-        toggleId={toggleId}
-      />
+      </button>
+      {isOpen ? (
+        <ChangePasswordModal
+          onClose={() => setIsOpen(false)}
+          pushToast={pushToast}
+        />
+      ) : null}
     </>
   );
 }
@@ -77,11 +68,9 @@ export function SuperadminAccountButton({
 function ChangePasswordModal({
   onClose,
   pushToast,
-  toggleId,
 }: {
   onClose: () => void;
   pushToast: (type: "error" | "success", message: string) => void;
-  toggleId: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [fieldErrors, setFieldErrors] = useState<
@@ -127,9 +116,10 @@ function ChangePasswordModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 hidden place-items-center bg-slate-950/45 p-4 backdrop-blur-sm peer-checked:grid">
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
       <section
         aria-labelledby="change-password-title"
+        aria-modal="true"
         className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.24)]"
         role="dialog"
       >
@@ -150,13 +140,15 @@ function ChangePasswordModal({
               </p>
             </div>
           </div>
-          <label
+          <button
             aria-label="Close password modal"
-            className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl border border-[#EACC84]/30 bg-white/10 text-[#FCFCF0] transition hover:bg-white/15"
-            htmlFor={toggleId}
+            className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl border border-[#EACC84]/30 bg-white/10 text-[#FCFCF0] transition hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
+            disabled={isPending}
+            onClick={onClose}
+            type="button"
           >
             <X size={17} aria-hidden="true" />
-          </label>
+          </button>
         </div>
         <form className="grid gap-4 px-5 py-5" onSubmit={handleSubmit} ref={formRef}>
           <PasswordFieldControl
@@ -178,12 +170,14 @@ function ChangePasswordModal({
             name="confirmPassword"
           />
           <div className="mt-1 flex justify-end gap-2">
-            <label
-              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-              htmlFor={toggleId}
+            <button
+              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+              disabled={isPending}
+              onClick={onClose}
+              type="button"
             >
               Cancel
-            </label>
+            </button>
             <button
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#C0964E] px-4 text-sm font-black text-[#123C36] shadow-[0_14px_28px_rgba(192,150,78,0.24)] transition hover:bg-[#A87E36] disabled:cursor-wait disabled:opacity-75"
               disabled={isPending}
