@@ -1,13 +1,25 @@
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
 const connectionString = process.env.DATABASE_URL;
+const sslRootCertificate = process.env.DATABASE_SSL_ROOT_CERT?.replace(
+  /\\n/g,
+  "\n",
+);
 
 function createPool() {
   if (!connectionString) {
     throw new Error("DATABASE_URL is required.");
   }
 
-  return new Pool({ connectionString });
+  return new Pool({
+    connectionString,
+    ssl: sslRootCertificate
+      ? {
+          ca: sslRootCertificate,
+          rejectUnauthorized: true,
+        }
+      : undefined,
+  });
 }
 
 declare global {

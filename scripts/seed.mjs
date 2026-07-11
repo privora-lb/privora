@@ -6,8 +6,20 @@ const { Pool } = pg;
 const connectionString =
   process.env.DATABASE_URL ??
   "postgres://naderkhaddaj@localhost:5432/reservation_tracking";
+const sslRootCertificate = process.env.DATABASE_SSL_ROOT_CERT?.replace(
+  /\\n/g,
+  "\n",
+);
 
-const pool = new Pool({ connectionString });
+const pool = new Pool({
+  connectionString,
+  ssl: sslRootCertificate
+    ? {
+        ca: sslRootCertificate,
+        rejectUnauthorized: true,
+      }
+    : undefined,
+});
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("base64url");
