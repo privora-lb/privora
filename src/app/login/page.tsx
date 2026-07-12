@@ -32,8 +32,8 @@ export default async function LoginPage({
     <main className="min-h-screen overflow-x-hidden bg-[#f4f2ea] px-3 py-4 text-slate-950 sm:px-6 sm:py-6 lg:grid lg:place-items-center lg:py-10">
       <div className="w-full">
       <section className="mx-auto grid w-full max-w-md overflow-hidden rounded-[24px] border border-[#EACC84]/45 bg-white shadow-[0_24px_70px_rgba(18,60,54,0.16)] sm:max-w-xl lg:max-w-5xl lg:grid-cols-[0.9fr_1.1fr] lg:rounded-[28px]">
-        <div className="min-w-0 bg-[#123C36] p-4 text-[#FCFCF0] sm:p-7 lg:p-8">
-          <div className="bg-[#123C36]">
+        <div className="flex min-w-0 items-center justify-center bg-[#123C36] p-4 text-[#FCFCF0] sm:p-7 lg:p-8">
+          <div className="flex w-full items-center justify-center bg-[#123C36]">
             <Image
               alt="Privora"
               className="mx-auto h-auto w-full max-w-[260px] rounded-none sm:max-w-[300px] lg:max-w-[320px]"
@@ -41,16 +41,6 @@ export default async function LoginPage({
               sizes="(min-width: 1024px) 320px, 80vw"
               src={privoraProfilePicture}
             />
-          </div>
-
-          <div className="mt-4 rounded-2xl bg-[#06302A] px-4 py-3 shadow-[inset_0_1px_0_rgba(252,252,240,0.05)]">
-            <p className="m-0 text-[10px] font-black uppercase tracking-[0.16em] text-[#EACC84]">
-              Live reservation workspace
-            </p>
-            <p className="m-0 mt-1 text-[13px] font-semibold leading-5 text-[#FCFCF0]/78">
-              Calendar availability, owner approvals, and booking details in one
-              controlled dashboard.
-            </p>
           </div>
         </div>
 
@@ -129,32 +119,7 @@ export default async function LoginPage({
         </div>
       </section>
 
-      <section className="mx-auto mt-4 w-full max-w-md rounded-[20px] border border-[#EACC84]/35 bg-white px-4 py-3 shadow-[0_12px_30px_rgba(18,60,54,0.08)] sm:max-w-xl lg:max-w-5xl">
-        <div className="grid gap-3 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center">
-          <p className="m-0 text-[10px] font-black uppercase tracking-[0.16em] text-[#967230]">
-            Testing credentials
-          </p>
-          <div className="grid gap-2 lg:grid-cols-3">
-            <CredentialRow label="Admin" value="admin@example.com / admin123" />
-            <CredentialRow label="Owner" value="Maya Haddad / owner123" />
-            <CredentialRow label="Owner" value="karim@example.com / owner123" />
-          </div>
-        </div>
-      </section>
       </div>
     </main>
-  );
-}
-
-function CredentialRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid min-w-0 gap-1 rounded-xl bg-[#FCF7E8] px-3 py-2 sm:flex sm:items-center sm:justify-between sm:gap-3">
-      <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[#967230] sm:text-xs">
-        {label}
-      </span>
-      <span className="min-w-0 break-all text-sm font-bold leading-5 text-[#123C36] sm:truncate sm:text-right">
-        {value}
-      </span>
-    </div>
   );
 }
