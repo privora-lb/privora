@@ -161,3 +161,73 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique_idx
   WHERE email IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_name_lower_unique_idx ON users (lower(name));
 CREATE INDEX IF NOT EXISTS venues_assigned_active_idx ON venues (assigned_user_id, is_active);
+
+CREATE TABLE IF NOT EXISTS public_listings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  slug text NOT NULL UNIQUE,
+  price_amount numeric(12,2) NOT NULL CHECK (price_amount >= 0),
+  price_currency text NOT NULL DEFAULT 'USD' CHECK (char_length(price_currency) = 3),
+  location_name text NOT NULL,
+  google_maps_url text NOT NULL,
+  pool_capacity integer NOT NULL CHECK (pool_capacity >= 0),
+  stay_capacity integer NOT NULL CHECK (stay_capacity >= 0),
+  day_check_in time NOT NULL,
+  day_check_out time NOT NULL,
+  night_check_in time NOT NULL,
+  night_check_out time NOT NULL,
+  has_wifi boolean NOT NULL DEFAULT false,
+  description text NOT NULL,
+  bedrooms integer NOT NULL CHECK (bedrooms >= 0),
+  toilets integer NOT NULL CHECK (toilets >= 0),
+  pool_length_m numeric(6,2) NOT NULL CHECK (pool_length_m > 0),
+  pool_width_m numeric(6,2) NOT NULL CHECK (pool_width_m > 0),
+  pool_depth_m numeric(6,2) NOT NULL CHECK (pool_depth_m > 0),
+  phone_number text NOT NULL,
+  whatsapp_number text NOT NULL,
+  instagram_url text,
+  facebook_url text,
+  tiktok_url text,
+  website_url text,
+  youtube_url text,
+  calendar_venue_id uuid UNIQUE REFERENCES venues(id) ON DELETE SET NULL,
+  is_published boolean NOT NULL DEFAULT false,
+  created_by_id uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public_listing_images (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  listing_id uuid NOT NULL REFERENCES public_listings(id) ON DELETE CASCADE,
+  image_url text NOT NULL,
+  alt_text text NOT NULL DEFAULT '',
+  position integer NOT NULL CHECK (position >= 0),
+  UNIQUE (listing_id, position)
+);
+
+CREATE TABLE IF NOT EXISTS public_listing_inclusions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  listing_id uuid NOT NULL REFERENCES public_listings(id) ON DELETE CASCADE,
+  label text NOT NULL,
+  details text NOT NULL DEFAULT '',
+  position integer NOT NULL CHECK (position >= 0),
+  UNIQUE (listing_id, position)
+);
+
+CREATE TABLE IF NOT EXISTS public_listing_rules (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  listing_id uuid NOT NULL REFERENCES public_listings(id) ON DELETE CASCADE,
+  rule_text text NOT NULL,
+  position integer NOT NULL CHECK (position >= 0),
+  UNIQUE (listing_id, position)
+);
+
+CREATE INDEX IF NOT EXISTS public_listings_published_idx
+  ON public_listings (is_published, updated_at DESC);
+CREATE INDEX IF NOT EXISTS public_listing_images_listing_idx
+  ON public_listing_images (listing_id, position);
+CREATE INDEX IF NOT EXISTS public_listing_inclusions_listing_idx
+  ON public_listing_inclusions (listing_id, position);
+CREATE INDEX IF NOT EXISTS public_listing_rules_listing_idx
+  ON public_listing_rules (listing_id, position);

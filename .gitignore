@@ -9,3 +9,4 @@ coverage
 *.docx
 Screenshot*.png
 .vercel
+public/uploads/listings/

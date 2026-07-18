@@ -19,6 +19,7 @@ const superadminLinks = [
   { href: "/owners", label: "Owners" },
   { href: "/venues", label: "Venues" },
   { href: "/types", label: "Space Types" },
+  { href: "/listings", label: "Listings" },
 ];
 
 export function AppNavLinks({
