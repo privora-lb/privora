@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import type { PoolClient } from "pg";
 
 import type { ListingFormState } from "@/features/listings/types";
@@ -8,8 +9,31 @@ import { parseListingInput } from "@/features/listings/listing-form-data";
 import { requireSuperadmin } from "@/lib/auth";
 import { transaction } from "@/lib/db";
 import { getActionErrorMessage, getFormString } from "@/lib/forms";
+import { purgeDeletePendingImageAssets } from "@/lib/listing-image-assets";
 
 type ActionResult = { message: string; ok: boolean };
+
+type ExistingListingImageRow = {
+  alt_text: string;
+  id: string;
+  image_url: string;
+  position: number;
+  storage_asset_id: string | null;
+};
+
+type ListingImageAssetRow = {
+  id: string;
+  image_url: string;
+  listing_id: string | null;
+  state: "attached" | "delete_pending" | "deleting" | "pending" | "uploading";
+  uploaded_by_id: string;
+};
+
+type ResolvedListingImage = {
+  altText: string;
+  imageUrl: string;
+  storageAssetId: string | null;
+};
 
 export async function saveListingAction(
   _previousState: ListingFormState,
@@ -29,10 +53,11 @@ export async function saveListingAction(
   try {
     const result = await transaction(async (client) => {
       let previousSlug = "";
+      let existingImages: ExistingListingImageRow[] = [];
 
       if (input.id) {
         const existing = await client.query<{ slug: string }>(
-          "SELECT slug FROM public_listings WHERE id = $1 LIMIT 1",
+          "SELECT slug FROM public_listings WHERE id = $1 FOR UPDATE",
           [input.id],
         );
 
@@ -41,6 +66,14 @@ export async function saveListingAction(
         }
 
         previousSlug = existing.rows[0].slug;
+        const previousImages = await client.query<ExistingListingImageRow>(
+          `SELECT id, storage_asset_id, image_url, alt_text, position
+           FROM public_listing_images
+           WHERE listing_id = $1
+           ORDER BY position`,
+          [input.id],
+        );
+        existingImages = previousImages.rows;
       }
 
       if (input.calendarVenueId) {
@@ -109,9 +142,22 @@ export async function saveListingAction(
         throw new Error("Listing could not be saved.");
       }
 
-      await replaceListingChildren(client, listingId, input);
-      return { listingId, previousSlug };
+      const resolvedImages = await resolveListingImages(
+        client,
+        listingId,
+        input.images,
+        existingImages,
+        user.id,
+      );
+      await replaceListingChildren(client, listingId, input, resolvedImages.images);
+
+      return {
+        listingId,
+        previousSlug,
+        removedStorageAssetIds: resolvedImages.removedStorageAssetIds,
+      };
     });
+    scheduleListingImageCleanup(result.removedStorageAssetIds);
     revalidateListingPaths(input.slug, result.previousSlug);
 
     return {
@@ -139,20 +185,60 @@ export async function deleteListingInlineAction(
   const id = getFormString(formData, "id");
 
   try {
-    const slug = await transaction(async (client) => {
-      const result = await client.query<{ slug: string }>(
-        "DELETE FROM public_listings WHERE id = $1 RETURNING slug",
+    const deletedListing = await transaction(async (client) => {
+      const listingResult = await client.query<{ slug: string }>(
+        "SELECT slug FROM public_listings WHERE id = $1 FOR UPDATE",
         [id],
       );
 
-      if (!result.rows[0]) {
+      if (!listingResult.rows[0]) {
         throw new Error("Listing was not found.");
       }
 
-      return result.rows[0].slug;
+      const imageResult = await client.query<{ storage_asset_id: string }>(
+        `SELECT storage_asset_id
+         FROM public_listing_images
+         WHERE listing_id = $1
+           AND storage_asset_id IS NOT NULL`,
+        [id],
+      );
+      const storageAssetIds = [
+        ...new Set(imageResult.rows.map((row) => row.storage_asset_id)),
+      ];
+
+      if (storageAssetIds.length) {
+        const assets = await client.query<{ id: string }>(
+          `SELECT id
+           FROM listing_image_assets
+           WHERE id = ANY($1::uuid[])
+             AND listing_id = $2
+             AND state = 'attached'
+           FOR UPDATE`,
+          [storageAssetIds, id],
+        );
+
+        if (assets.rows.length !== storageAssetIds.length) {
+          throw new Error("A listing image is no longer available.");
+        }
+
+        await client.query(
+          `UPDATE listing_image_assets
+           SET state = 'delete_pending', listing_id = NULL, updated_at = now()
+           WHERE id = ANY($1::uuid[])`,
+          [storageAssetIds],
+        );
+      }
+
+      await client.query("DELETE FROM public_listings WHERE id = $1", [id]);
+
+      return {
+        storageAssetIds,
+        slug: listingResult.rows[0].slug,
+      };
     });
 
-    revalidateListingPaths(slug);
+    scheduleListingImageCleanup(deletedListing.storageAssetIds);
+    revalidateListingPaths(deletedListing.slug);
     return { message: "Listing deleted successfully.", ok: true };
   } catch (error) {
     return {
@@ -198,6 +284,138 @@ export async function toggleListingPublishedInlineAction(
   }
 }
 
+async function resolveListingImages(
+  client: PoolClient,
+  listingId: string,
+  requestedImages: ReturnType<typeof parseListingInput>["input"]["images"],
+  existingImages: ExistingListingImageRow[],
+  userId: string,
+) {
+  const requestedStorageAssetIds = requestedImages
+    .map((image) => image.storageAssetId)
+    .filter(Boolean);
+  const uniqueRequestedAssetIds = [...new Set(requestedStorageAssetIds)];
+
+  if (requestedStorageAssetIds.length !== uniqueRequestedAssetIds.length) {
+    throw new Error("An uploaded image is no longer available.");
+  }
+
+  const assetResult = uniqueRequestedAssetIds.length
+    ? await client.query<ListingImageAssetRow>(
+        `SELECT id, image_url, uploaded_by_id, listing_id, state
+         FROM listing_image_assets
+         WHERE id = ANY($1::uuid[])
+         FOR UPDATE`,
+        [uniqueRequestedAssetIds],
+      )
+    : { rows: [] as ListingImageAssetRow[] };
+  const assetsById = new Map(assetResult.rows.map((asset) => [asset.id, asset]));
+  const existingManagedIds = new Set(
+    existingImages
+      .map((image) => image.storage_asset_id)
+      .filter((assetId): assetId is string => Boolean(assetId)),
+  );
+  const existingUnmanagedCounts = new Map<string, number>();
+
+  for (const image of existingImages) {
+    if (!image.storage_asset_id) {
+      existingUnmanagedCounts.set(
+        image.image_url,
+        (existingUnmanagedCounts.get(image.image_url) ?? 0) + 1,
+      );
+    }
+  }
+
+  const newlyAttachedIds: string[] = [];
+  const selectedManagedIds = new Set<string>();
+  const images: ResolvedListingImage[] = [];
+
+  for (const image of requestedImages) {
+    if (!image.storageAssetId) {
+      const remainingCount = existingUnmanagedCounts.get(image.imageUrl) ?? 0;
+
+      if (!remainingCount) {
+        throw new Error("An uploaded image is no longer available.");
+      }
+
+      existingUnmanagedCounts.set(image.imageUrl, remainingCount - 1);
+      images.push({
+        altText: image.altText,
+        imageUrl: image.imageUrl,
+        storageAssetId: null,
+      });
+      continue;
+    }
+
+    const asset = assetsById.get(image.storageAssetId);
+
+    if (!asset) {
+      throw new Error("An uploaded image is no longer available.");
+    }
+
+    if (existingManagedIds.has(asset.id)) {
+      if (asset.state !== "attached" || asset.listing_id !== listingId) {
+        throw new Error("An uploaded image is no longer available.");
+      }
+    } else {
+      if (
+        asset.state !== "pending" ||
+        asset.listing_id ||
+        asset.uploaded_by_id !== userId
+      ) {
+        throw new Error("An uploaded image is no longer available.");
+      }
+
+      newlyAttachedIds.push(asset.id);
+    }
+
+    selectedManagedIds.add(asset.id);
+    images.push({
+      altText: image.altText,
+      imageUrl: asset.image_url,
+      storageAssetId: asset.id,
+    });
+  }
+
+  if (newlyAttachedIds.length) {
+    const attached = await client.query<{ id: string }>(
+      `UPDATE listing_image_assets
+       SET state = 'attached', listing_id = $2, updated_at = now()
+       WHERE id = ANY($1::uuid[])
+         AND state = 'pending'
+         AND listing_id IS NULL
+       RETURNING id`,
+      [newlyAttachedIds, listingId],
+    );
+
+    if (attached.rows.length !== newlyAttachedIds.length) {
+      throw new Error("An uploaded image is no longer available.");
+    }
+  }
+
+  const removedStorageAssetIds = [...existingManagedIds].filter(
+    (assetId) => !selectedManagedIds.has(assetId),
+  );
+
+  if (removedStorageAssetIds.length) {
+    const removed = await client.query<{ id: string }>(
+      `UPDATE listing_image_assets
+       SET state = 'delete_pending', listing_id = NULL, updated_at = now()
+       WHERE id = ANY($1::uuid[])
+         AND state = 'attached'
+         AND listing_id = $2
+       RETURNING id`,
+      [removedStorageAssetIds, listingId],
+    );
+
+    if (removed.rows.length !== removedStorageAssetIds.length) {
+      throw new Error("An uploaded image is no longer available.");
+    }
+  }
+
+  return { images, removedStorageAssetIds };
+}
+
 function getListingValues(
   input: ReturnType<typeof parseListingInput>["input"],
   userId: string,
@@ -239,6 +457,7 @@ async function replaceListingChildren(
   client: PoolClient,
   listingId: string,
   input: ReturnType<typeof parseListingInput>["input"],
+  images: ResolvedListingImage[],
 ) {
   await client.query("DELETE FROM public_listing_images WHERE listing_id = $1", [
     listingId,
@@ -251,12 +470,18 @@ async function replaceListingChildren(
     listingId,
   ]);
 
-  for (const [position, image] of input.images.entries()) {
+  for (const [position, image] of images.entries()) {
     await client.query(
       `INSERT INTO public_listing_images
-        (listing_id, image_url, alt_text, position)
-       VALUES ($1, $2, $3, $4)`,
-      [listingId, image.imageUrl, image.altText, position],
+        (listing_id, storage_asset_id, image_url, alt_text, position)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        listingId,
+        image.storageAssetId,
+        image.imageUrl,
+        image.altText,
+        position,
+      ],
     );
   }
 
@@ -286,6 +511,12 @@ function revalidateListingPaths(slug: string, previousSlug = "") {
 
   if (previousSlug && previousSlug !== slug) {
     revalidatePath(`/listing/${previousSlug}`);
+  }
+}
+
+function scheduleListingImageCleanup(storageAssetIds: string[]) {
+  if (storageAssetIds.length) {
+    after(() => purgeDeletePendingImageAssets(storageAssetIds));
   }
 }
 

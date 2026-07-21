@@ -197,14 +197,81 @@ CREATE TABLE IF NOT EXISTS public_listings (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS listing_image_assets (
+  id uuid PRIMARY KEY,
+  object_path text NOT NULL UNIQUE,
+  image_url text NOT NULL UNIQUE,
+  content_type text NOT NULL CHECK (
+    content_type IN ('image/jpeg', 'image/png', 'image/webp')
+  ),
+  uploaded_by_id uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  listing_id uuid REFERENCES public_listings(id) ON DELETE SET NULL,
+  state text NOT NULL CHECK (
+    state IN ('uploading', 'pending', 'attached', 'delete_pending', 'deleting')
+  ),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE listing_image_assets ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'listing_image_assets_state_listing_check'
+      AND conrelid = 'listing_image_assets'::regclass
+  ) THEN
+    ALTER TABLE listing_image_assets
+      ADD CONSTRAINT listing_image_assets_state_listing_check
+      CHECK ((state = 'attached') = (listing_id IS NOT NULL));
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS public_listing_images (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   listing_id uuid NOT NULL REFERENCES public_listings(id) ON DELETE CASCADE,
+  storage_asset_id uuid REFERENCES listing_image_assets(id) ON DELETE RESTRICT,
   image_url text NOT NULL,
   alt_text text NOT NULL DEFAULT '',
   position integer NOT NULL CHECK (position >= 0),
   UNIQUE (listing_id, position)
 );
+
+ALTER TABLE public_listing_images
+  ADD COLUMN IF NOT EXISTS storage_asset_id uuid
+  REFERENCES listing_image_assets(id) ON DELETE RESTRICT;
+
+ALTER TABLE public_listing_images ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION enforce_listing_image_asset_reference()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.storage_asset_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1
+    FROM listing_image_assets asset
+    WHERE asset.id = NEW.storage_asset_id
+      AND asset.state = 'attached'
+      AND asset.listing_id = NEW.listing_id
+  ) THEN
+    RAISE EXCEPTION 'Managed listing image asset must be attached to this listing.'
+      USING ERRCODE = '23503';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS public_listing_images_asset_reference_trigger
+  ON public_listing_images;
+CREATE TRIGGER public_listing_images_asset_reference_trigger
+BEFORE INSERT OR UPDATE OF listing_id, storage_asset_id
+ON public_listing_images
+FOR EACH ROW
+EXECUTE FUNCTION enforce_listing_image_asset_reference();
 
 CREATE TABLE IF NOT EXISTS public_listing_inclusions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -227,6 +294,14 @@ CREATE INDEX IF NOT EXISTS public_listings_published_idx
   ON public_listings (is_published, updated_at DESC);
 CREATE INDEX IF NOT EXISTS public_listing_images_listing_idx
   ON public_listing_images (listing_id, position);
+CREATE UNIQUE INDEX IF NOT EXISTS public_listing_images_storage_asset_unique_idx
+  ON public_listing_images (storage_asset_id)
+  WHERE storage_asset_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS listing_image_assets_state_updated_idx
+  ON listing_image_assets (state, updated_at);
+CREATE INDEX IF NOT EXISTS listing_image_assets_listing_idx
+  ON listing_image_assets (listing_id)
+  WHERE listing_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS public_listing_inclusions_listing_idx
   ON public_listing_inclusions (listing_id, position);
 CREATE INDEX IF NOT EXISTS public_listing_rules_listing_idx

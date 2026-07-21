@@ -1,4 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/internal/listing-image-cleanup",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "regions": ["fra1"]
 }

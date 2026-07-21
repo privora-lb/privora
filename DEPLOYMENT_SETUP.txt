@@ -21,7 +21,7 @@ The owner should create and provide access to these accounts:
 3. Supabase
    - Create a Supabase project for the production database.
    - This will replace the current local PostgreSQL database for production.
-   - Later, Supabase Storage can also be used for images/files when the image feature is added.
+   - Supabase Storage is used for public listing images.
 
 4. Ably
    - Create an Ably account and app for realtime calendar updates.
@@ -74,7 +74,8 @@ Database migration plan
 1. Keep the local database for development only.
 2. Create a new Supabase production database.
 3. Run the current database schema on Supabase.
-4. Seed initial production data if required.
+4. Provision any required initial production users with reviewed one-time SQL.
+   The demo seed/reset scripts are local-only and must never run in production.
 5. Update Vercel environment variables to use Supabase.
 6. Deploy the project.
 7. Test all important flows:
@@ -92,10 +93,21 @@ Database migration plan
 
 Image storage note
 
-For now, this project does not need image storage.
-Images will be added later when the related feature is integrated.
-When that feature is ready, Supabase Storage can be used under the same Supabase account.
-At that time, the storage buckets, upload rules, and image access rules should be configured properly.
+Public listing images use Supabase Storage in production.
+Create a public bucket named listing-images in the same Supabase project used by DATABASE_URL.
+Set the bucket file-size limit to 4194304 bytes and allow only image/jpeg, image/png, and image/webp.
+Uploads and deletions go through the authenticated server route, so do not add public insert, update, or delete policies.
+Add SUPABASE_URL and the server-only SUPABASE_SECRET_KEY to Vercel Production environment variables.
+SUPABASE_SERVICE_ROLE_KEY remains supported only as a legacy fallback.
+Add a long random CRON_SECRET so Vercel can authenticate the daily abandoned-image cleanup job.
+Authenticate the Supabase CLI, link the production project, and run this exact command before deploying the image feature:
+  npx supabase@latest db query --linked --file supabase/migrations/20260721000100_configure_listing_images_bucket.sql
+Then verify listing_image_assets and public_listing_images have RLS enabled with no anon/authenticated grants, the bucket settings match the limits above, and no broad storage.objects insert/update/delete policy exists.
+The migration adopts valid legacy UUID images that are both referenced by a listing and present in this project's bucket. Inventory any remaining unreferenced bucket objects separately before deleting them.
+For an upgrade with existing listing images, pause listing writes during the migration/deployment cutover and rerun the idempotent migration immediately after the new deployment before restoring writes. This prevents the previous app version from creating an untracked image row between migration and deployment.
+Vercel Preview also runs with NODE_ENV=production. Give Preview a separate Supabase project and credentials if upload testing is required there; otherwise leave storage credentials unset so Preview uploads stay disabled.
+Never expose the secret/service-role key with a NEXT_PUBLIC_ variable or commit it to source control.
+Never run db:seed, db:seed:listings, or db:reset against production after launch; those commands are deliberately restricted to local PostgreSQL.
 
 Important notes
 

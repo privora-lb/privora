@@ -187,11 +187,12 @@ async function getImages(listingIds: string[]) {
   const result = await query<{
     id: string;
     listing_id: string;
+    storage_asset_id: string | null;
     image_url: string;
     alt_text: string;
     position: number;
   }>(
-    `SELECT id, listing_id, image_url, alt_text, position
+    `SELECT id, listing_id, storage_asset_id, image_url, alt_text, position
      FROM public_listing_images
      WHERE listing_id = ANY($1::uuid[])
      ORDER BY listing_id, position`,
@@ -200,6 +201,7 @@ async function getImages(listingIds: string[]) {
 
   return groupRows(result.rows, (row): ListingImage => ({
     id: row.id,
+    storageAssetId: row.storage_asset_id,
     imageUrl: row.image_url,
     altText: row.alt_text,
     position: row.position,

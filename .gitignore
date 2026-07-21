@@ -10,3 +10,4 @@ coverage
 Screenshot*.png
 .vercel
 public/uploads/listings/
+supabase/.temp/

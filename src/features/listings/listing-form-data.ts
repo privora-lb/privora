@@ -4,6 +4,7 @@ import { getFormString } from "@/lib/forms";
 export type ListingImageInput = {
   altText: string;
   imageUrl: string;
+  storageAssetId: string;
 };
 
 export type ListingInclusionInput = {
@@ -292,6 +293,7 @@ function parseImages(formData: FormData, errors: Record<string, string>) {
     .map((image) => ({
       imageUrl: String(image.imageUrl ?? "").trim(),
       altText: String(image.altText ?? "").trim(),
+      storageAssetId: String(image.storageAssetId ?? "").trim(),
     }))
     .filter((image) => image.imageUrl);
 
@@ -301,6 +303,12 @@ function parseImages(formData: FormData, errors: Record<string, string>) {
     errors.images = "A listing can contain up to 12 images.";
   } else if (images.some((image) => !isImageLocation(image.imageUrl))) {
     errors.images = "Each image must use a local path or complete URL.";
+  } else if (
+    images.some(
+      (image) => image.storageAssetId && !isUuid(image.storageAssetId),
+    )
+  ) {
+    errors.images = "An uploaded image is no longer valid. Upload it again.";
   }
 
   return images;
@@ -350,4 +358,10 @@ function parseJsonArray<T>(formData: FormData, key: string): T[] {
 
 function isImageLocation(value: string) {
   return value.startsWith("/") || isHttpUrl(value);
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
 }

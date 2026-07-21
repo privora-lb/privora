@@ -1,5 +1,6 @@
 export type ListingImage = {
   id: string;
+  storageAssetId: string | null;
   imageUrl: string;
   altText: string;
   position: number;

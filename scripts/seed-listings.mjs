@@ -144,11 +144,30 @@ const listings = [
   },
 ];
 
+async function assertNoTrackedListingImages(client) {
+  const registry = await client.query(
+    "SELECT to_regclass('public.listing_image_assets')::text AS name",
+  );
+
+  if (!registry.rows[0]?.name) return;
+
+  const assets = await client.query(
+    "SELECT count(*)::int AS count FROM listing_image_assets",
+  );
+
+  if (assets.rows[0]?.count) {
+    throw new Error(
+      "Local listing seed stopped because tracked images exist. Remove them through the application before reseeding.",
+    );
+  }
+}
+
 async function seed() {
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
+    await assertNoTrackedListingImages(client);
     await client.query(
       `TRUNCATE public_listing_rules, public_listing_inclusions,
         public_listing_images, public_listings RESTART IDENTITY CASCADE`,

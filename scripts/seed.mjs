@@ -6,10 +6,15 @@ const { Pool } = pg;
 const connectionString =
   process.env.DATABASE_URL ??
   "postgres://naderkhaddaj@localhost:5432/reservation_tracking";
+const target = new URL(connectionString);
 const sslRootCertificate = process.env.DATABASE_SSL_ROOT_CERT?.replace(
   /\\n/g,
   "\n",
 );
+
+if (!["localhost", "127.0.0.1", "::1"].includes(target.hostname)) {
+  throw new Error("Demo seed is restricted to a local PostgreSQL database.");
+}
 
 const pool = new Pool({
   connectionString,
@@ -25,6 +30,24 @@ function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("base64url");
   const hash = crypto.scryptSync(password, salt, 64).toString("base64url");
   return `${salt}:${hash}`;
+}
+
+async function assertNoTrackedListingImages(client) {
+  const registry = await client.query(
+    "SELECT to_regclass('public.listing_image_assets')::text AS name",
+  );
+
+  if (!registry.rows[0]?.name) return;
+
+  const assets = await client.query(
+    "SELECT count(*)::int AS count FROM listing_image_assets",
+  );
+
+  if (assets.rows[0]?.count) {
+    throw new Error(
+      "Local seed stopped because tracked listing images exist. Remove them through the application before reseeding.",
+    );
+  }
 }
 
 async function insertUser(client, user) {
@@ -74,6 +97,7 @@ async function seed() {
 
   try {
     await client.query("BEGIN");
+    await assertNoTrackedListingImages(client);
     await client.query(
       `TRUNCATE change_requests, calendar_entries, venues, venue_types, sessions, users
        RESTART IDENTITY CASCADE`,

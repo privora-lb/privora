@@ -1,32 +1,74 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Loader2, Trash2, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ListingImage } from "@/features/listings/listing-image";
 import type { ListingImage as SavedListingImage } from "@/features/listings/types";
 
 import { listingInputClassName } from "./listing-form-controls";
+import {
+  readApiResult,
+  removeUploadedListingImages,
+  type ApiResult,
+} from "./listing-image-api";
 
-type EditableImage = { altText: string; imageUrl: string };
+type EditableImage = {
+  altText: string;
+  imageUrl: string;
+  isTemporary: boolean;
+  storageAssetId: string | null;
+};
+
+type UploadResult = ApiResult & {
+  images?: Array<{
+    altText: string;
+    imageUrl: string;
+    storageAssetId: string;
+  }>;
+};
 
 export function ListingImageManager({
+  disabled,
   error,
   initialImages,
+  onBusyChange,
   onError,
+  onTemporaryAssetsChange,
 }: {
+  disabled?: boolean;
   error?: string;
   initialImages: SavedListingImage[];
+  onBusyChange: (isBusy: boolean) => void;
   onError: (message: string) => void;
+  onTemporaryAssetsChange: (storageAssetIds: string[]) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [images, setImages] = useState<EditableImage[]>(
-    initialImages.map(({ altText, imageUrl }) => ({ altText, imageUrl })),
+    initialImages.map(({ altText, imageUrl, storageAssetId }) => ({
+      altText,
+      imageUrl,
+      isTemporary: false,
+      storageAssetId,
+    })),
   );
   const [isUploading, setIsUploading] = useState(false);
+  const [deletingImageUrl, setDeletingImageUrl] = useState("");
+
+  useEffect(() => {
+    onTemporaryAssetsChange(
+      images
+        .filter((image) => image.isTemporary && image.storageAssetId)
+        .map((image) => image.storageAssetId!),
+    );
+  }, [images, onTemporaryAssetsChange]);
+
+  useEffect(() => {
+    onBusyChange(isUploading || Boolean(deletingImageUrl));
+  }, [deletingImageUrl, isUploading, onBusyChange]);
 
   async function uploadFiles(files: FileList | null) {
-    if (!files?.length || isUploading) return;
+    if (!files?.length || disabled || isUploading || deletingImageUrl) return;
     const selectedFiles = Array.from(files).slice(
       0,
       Math.max(0, 12 - images.length),
@@ -34,6 +76,7 @@ export function ListingImageManager({
 
     if (!selectedFiles.length) return;
     setIsUploading(true);
+    onBusyChange(true);
     const uploadedImages: EditableImage[] = [];
 
     try {
@@ -44,16 +87,15 @@ export function ListingImageManager({
           body,
           method: "POST",
         });
-        const result = (await response.json()) as {
-          images?: EditableImage[];
-          message?: string;
-        };
+        const result = await readApiResult<UploadResult>(response);
 
-        if (!response.ok || !result.images?.length) {
-          throw new Error(result.message ?? "Images could not be uploaded.");
+        if (!response.ok || !result?.images?.length) {
+          throw new Error(result?.message ?? "Images could not be uploaded.");
         }
 
-        uploadedImages.push(...result.images);
+        uploadedImages.push(
+          ...result.images.map((image) => ({ ...image, isTemporary: true })),
+        );
       }
     } catch (uploadError) {
       onError(uploadError instanceof Error ? uploadError.message : "Image upload failed.");
@@ -62,6 +104,7 @@ export function ListingImageManager({
         setImages((current) => [...current, ...uploadedImages].slice(0, 12));
       }
       setIsUploading(false);
+      onBusyChange(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
@@ -84,12 +127,55 @@ export function ListingImageManager({
     });
   }
 
+  async function removeImage(index: number) {
+    const image = images[index];
+    if (!image || disabled || deletingImageUrl) return;
+
+    if (image.isTemporary) {
+      if (!image.storageAssetId) {
+        onError("The uploaded image is no longer available.");
+        return;
+      }
+
+      setDeletingImageUrl(image.imageUrl);
+      onBusyChange(true);
+
+      try {
+        await removeUploadedListingImages([image.storageAssetId]);
+      } catch (error) {
+        onError(
+          error instanceof Error
+            ? `${error.message} Cleanup will retry automatically.`
+            : "Image cleanup will retry automatically.",
+        );
+      } finally {
+        setDeletingImageUrl("");
+        onBusyChange(false);
+      }
+    }
+
+    setImages((current) =>
+      current.filter((_, itemIndex) => itemIndex !== index),
+    );
+  }
+
   return (
     <div className="grid gap-4">
-      <input name="imagesJson" type="hidden" value={JSON.stringify(images)} />
+      <input
+        name="imagesJson"
+        type="hidden"
+        value={JSON.stringify(
+          images.map(({ altText, imageUrl, storageAssetId }) => ({
+            altText,
+            imageUrl,
+            storageAssetId,
+          })),
+        )}
+      />
       <input
         accept="image/jpeg,image/png,image/webp"
         className="sr-only"
+        disabled={disabled || isUploading || Boolean(deletingImageUrl)}
         multiple
         onChange={(event) => void uploadFiles(event.target.files)}
         ref={fileInputRef}
@@ -98,7 +184,7 @@ export function ListingImageManager({
       <div>
         <button
           className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#123C36] px-4 text-xs font-black text-white transition hover:bg-[#0c2f2a] disabled:cursor-wait disabled:opacity-65"
-          disabled={isUploading || images.length >= 12}
+          disabled={disabled || isUploading || Boolean(deletingImageUrl) || images.length >= 12}
           onClick={() => fileInputRef.current?.click()}
           type="button"
         >
@@ -139,20 +225,21 @@ export function ListingImageManager({
                 <input
                   aria-label={`Image ${index + 1} alternative text`}
                   className={listingInputClassName}
+                  disabled={disabled || Boolean(deletingImageUrl)}
                   onChange={(event) => updateImage(index, { altText: event.target.value })}
                   placeholder="Image description"
                   value={image.altText}
                 />
               </div>
               <div className="flex items-center gap-1 sm:grid">
-                <ImageAction label="Move image up" disabled={index === 0} onClick={() => moveImage(index, -1)}>
+                <ImageAction label="Move image up" disabled={disabled || index === 0 || Boolean(deletingImageUrl)} onClick={() => moveImage(index, -1)}>
                   <ArrowUp size={15} />
                 </ImageAction>
-                <ImageAction label="Move image down" disabled={index === images.length - 1} onClick={() => moveImage(index, 1)}>
+                <ImageAction label="Move image down" disabled={disabled || index === images.length - 1 || Boolean(deletingImageUrl)} onClick={() => moveImage(index, 1)}>
                   <ArrowDown size={15} />
                 </ImageAction>
-                <ImageAction label="Remove image" danger onClick={() => setImages((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
-                  <Trash2 size={15} />
+                <ImageAction label="Remove image" danger disabled={disabled || Boolean(deletingImageUrl)} onClick={() => void removeImage(index)}>
+                  {deletingImageUrl === image.imageUrl ? <Loader2 className="animate-spin" size={15} /> : <Trash2 size={15} />}
                 </ImageAction>
               </div>
             </div>
