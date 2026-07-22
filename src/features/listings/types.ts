@@ -26,11 +26,17 @@ export type CalendarVenueOption = {
   ownerRole: "owner" | "superadmin";
 };
 
+export type IsoWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
 export type PublicListing = {
   id: string;
   name: string;
   slug: string;
-  priceAmount: number;
+  weekdayDayPriceAmount: number;
+  weekdayNightPriceAmount: number;
+  weekendDayPriceAmount: number;
+  weekendNightPriceAmount: number;
+  weekendIsoDays: IsoWeekday[];
   priceCurrency: string;
   locationName: string;
   googleMapsUrl: string;
@@ -67,6 +73,7 @@ export type PublicListing = {
 
 export type PublicCalendarStatus = {
   date: string;
+  slot: "day" | "night";
   status: "available" | "booked";
 };
 

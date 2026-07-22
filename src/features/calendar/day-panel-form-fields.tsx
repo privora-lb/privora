@@ -20,6 +20,8 @@ const detailInputClassName =
   "h-11 w-full min-w-0 rounded-2xl border border-[#d8e9ee] bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#007c92] focus:ring-4 focus:ring-[#007c92]/10";
 
 export function CalendarDayFields({
+  bookingPriceAmount,
+  bookingPriceCurrency,
   defaultCustomerName,
   defaultCustomerPhone,
   defaultDepositAmount,
@@ -30,6 +32,8 @@ export function CalendarDayFields({
   noteLabel,
   notePlaceholder,
 }: {
+  bookingPriceAmount: number | null;
+  bookingPriceCurrency: string | null;
   defaultCustomerName: string;
   defaultCustomerPhone: string;
   defaultDepositAmount: number | null;
@@ -52,6 +56,12 @@ export function CalendarDayFields({
   return (
     <>
       <StatusChoiceGroup defaultStatus={defaultStatus} />
+
+      <div className="rounded-2xl border border-[#d8e9ee] bg-[#f8fcfd] px-3 py-2.5 text-xs font-bold text-slate-600">
+        {bookingPriceAmount !== null && bookingPriceCurrency
+          ? `Agreed price snapshot: ${formatPrice(bookingPriceAmount, bookingPriceCurrency)}`
+          : "The applicable listing rate will be saved automatically when this slot is booked."}
+      </div>
 
       <div className="grid gap-3">
         <div className="grid gap-3 min-[430px]:grid-cols-2">
@@ -154,7 +164,13 @@ export function CalendarSubmitButton({
   const pending = isPending ?? formPending;
   const isRequest = mode === "request";
   const Icon = pending ? Loader2 : isRequest ? Send : Check;
-  const label = pending ? (isRequest ? "Sending..." : "Saving...") : isRequest ? "Send request" : "Save day";
+  const label = pending
+    ? isRequest
+      ? "Sending..."
+      : "Saving..."
+    : isRequest
+      ? "Send request"
+      : "Save slot";
 
   return (
     <button
@@ -171,6 +187,14 @@ export function CalendarSubmitButton({
       {label}
     </button>
   );
+}
+
+function formatPrice(amount: number, currency: string) {
+  return new Intl.NumberFormat("en-US", {
+    currency,
+    maximumFractionDigits: 2,
+    style: "currency",
+  }).format(amount);
 }
 
 export function DecisionSubmitButton({

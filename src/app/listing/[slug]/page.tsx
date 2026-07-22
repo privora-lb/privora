@@ -31,8 +31,11 @@ import { ListingDetailCalendar } from "@/features/listings/public/listing-detail
 import type { PublicListing } from "@/features/listings/types";
 import {
   formatListingPrice,
+  formatListingIsoDays,
   formatListingTime,
   formatPoolDimensions,
+  getListingStartingPrice,
+  getListingWeekdayIsoDays,
   getMapEmbedUrl,
   getWhatsAppUrl,
 } from "@/features/listings/utils";
@@ -73,6 +76,7 @@ export default async function ListingDetailPage({
 
   if (!listing) notFound();
 
+  const startingPrice = getListingStartingPrice(listing);
   const initialMonth = todayKey().slice(0, 7);
   const initialStatuses =
     listing.calendarVenueEligible && listing.calendarVenueId
@@ -105,10 +109,13 @@ export default async function ListingDetailPage({
         </div>
         <div className="text-left lg:text-right">
           <p className="m-0 text-[10px] font-black uppercase text-slate-400">
-            Price
+            Rates from
           </p>
           <p className="m-0 mt-1 text-2xl font-black text-[#123C36]">
-            {formatListingPrice(listing.priceAmount, listing.priceCurrency)}
+            {formatListingPrice(startingPrice, listing.priceCurrency)}
+          </p>
+          <p className="m-0 mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+            Per session
           </p>
         </div>
       </header>
@@ -135,11 +142,7 @@ export default async function ListingDetailPage({
           <ContactActions className="mt-5" listing={listing} />
         </div>
         <div>
-          <SectionHeading icon={Clock3} title="Use hours" />
-          <div className="mt-4 divide-y divide-[#ebe4d4] border-y border-[#ebe4d4]">
-            <TimeRow label="Day use" start={listing.dayCheckIn} end={listing.dayCheckOut} />
-            <TimeRow label="Night use" start={listing.nightCheckIn} end={listing.nightCheckOut} />
-          </div>
+          <ListingRates listing={listing} />
         </div>
       </section>
 
@@ -171,6 +174,7 @@ export default async function ListingDetailPage({
             channelName={getVenueRealtimeChannel(listing.calendarVenueId)}
             initialMonth={initialMonth}
             initialStatuses={initialStatuses}
+            listing={listing}
             slug={listing.slug}
           />
         </section>
@@ -226,8 +230,104 @@ function SectionHeading({ icon: Icon, title }: { icon: LucideIcon; title: string
   return <div className="flex items-center gap-2.5"><span className="grid h-9 w-9 place-items-center rounded-lg bg-[#F6E4AE] text-[#123C36]"><Icon size={17} aria-hidden="true" /></span><h2 className="m-0 text-xl font-black text-[#123C36]">{title}</h2></div>;
 }
 
-function TimeRow({ end, label, start }: { end: string; label: string; start: string }) {
-  return <div className="flex items-center justify-between gap-4 py-3 text-sm"><span className="font-black text-slate-700">{label}</span><span className="font-bold text-slate-500">{formatListingTime(start)} - {formatListingTime(end)}</span></div>;
+function ListingRates({ listing }: { listing: PublicListing }) {
+  const weekdayIsoDays = getListingWeekdayIsoDays(listing.weekendIsoDays);
+
+  return (
+    <>
+      <SectionHeading icon={Clock3} title="Rates & hours" />
+      <div className="mt-4 overflow-hidden rounded-lg border border-[#ded8c8] bg-white">
+        <table className="w-full table-fixed border-collapse text-left">
+          <thead className="bg-[#f7f5ed]">
+            <tr>
+              <th className="w-[38%] border-b border-r border-[#ded8c8] px-3 py-3 text-[10px] font-black uppercase tracking-[0.08em] text-slate-400" scope="col">
+                Rate days
+              </th>
+              <RateHeader
+                end={listing.dayCheckOut}
+                label="Day use"
+                start={listing.dayCheckIn}
+              />
+              <RateHeader
+                end={listing.nightCheckOut}
+                label="Night use"
+                start={listing.nightCheckIn}
+              />
+            </tr>
+          </thead>
+          <tbody>
+            <RateRow
+              currency={listing.priceCurrency}
+              dayPrice={listing.weekdayDayPriceAmount}
+              days={formatListingIsoDays(weekdayIsoDays)}
+              label="Weekday"
+              nightPrice={listing.weekdayNightPriceAmount}
+            />
+            <RateRow
+              currency={listing.priceCurrency}
+              dayPrice={listing.weekendDayPriceAmount}
+              days={formatListingIsoDays(listing.weekendIsoDays)}
+              label="Weekend"
+              nightPrice={listing.weekendNightPriceAmount}
+            />
+          </tbody>
+        </table>
+      </div>
+      <p className="m-0 mt-2 text-[10px] font-semibold leading-4 text-slate-400">
+        Night rates follow the day on which the night session starts.
+      </p>
+    </>
+  );
+}
+
+function RateHeader({
+  end,
+  label,
+  start,
+}: {
+  end: string;
+  label: string;
+  start: string;
+}) {
+  return (
+    <th className="border-b border-r border-[#ded8c8] px-2 py-3 text-center last:border-r-0" scope="col">
+      <span className="block text-[11px] font-black text-[#123C36]">{label}</span>
+      <span className="mt-0.5 block text-[9px] font-bold leading-4 text-slate-400">
+        {formatListingTime(start)}–{formatListingTime(end)}
+      </span>
+    </th>
+  );
+}
+
+function RateRow({
+  currency,
+  dayPrice,
+  days,
+  label,
+  nightPrice,
+}: {
+  currency: string;
+  dayPrice: number;
+  days: string;
+  label: string;
+  nightPrice: number;
+}) {
+  return (
+    <tr className="last:[&>*]:border-b-0">
+      <th className="border-b border-r border-[#ded8c8] px-3 py-3" scope="row">
+        <span className="block text-[11px] font-black text-slate-700">{label}</span>
+        <span className="mt-0.5 block text-[9px] font-bold text-slate-400">{days}</span>
+      </th>
+      {[dayPrice, nightPrice].map((price, index) => (
+        <td
+          className="border-b border-r border-[#ded8c8] px-2 py-3 text-center text-xs font-black text-[#123C36] last:border-r-0"
+          key={index === 0 ? "day" : "night"}
+        >
+          {formatListingPrice(price, currency)}
+        </td>
+      ))}
+    </tr>
+  );
 }
 
 function SocialLinks({ listing }: { listing: PublicListing }) {

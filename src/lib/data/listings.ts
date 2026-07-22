@@ -2,6 +2,7 @@ import { query } from "@/lib/db";
 import { normalizeDateKey } from "@/lib/dates";
 import type {
   CalendarVenueOption,
+  IsoWeekday,
   ListingImage,
   ListingInclusion,
   ListingRule,
@@ -13,7 +14,11 @@ type ListingRow = {
   id: string;
   name: string;
   slug: string;
-  price_amount: string;
+  weekday_day_price_amount: string;
+  weekday_night_price_amount: string;
+  weekend_day_price_amount: string;
+  weekend_night_price_amount: string;
+  weekend_iso_days: number[];
   price_currency: string;
   location_name: string;
   google_maps_url: string;
@@ -138,19 +143,21 @@ export async function getPublicCalendarStatuses(
 ) {
   const result = await query<{
     reservation_date: Date | string;
+    slot: "day" | "night";
     status: "available" | "booked";
   }>(
-    `SELECT reservation_date, status
+    `SELECT reservation_date, slot, status
      FROM calendar_entries
      WHERE venue_id = $1
        AND reservation_date BETWEEN $2::date AND $3::date
-     ORDER BY reservation_date`,
+     ORDER BY reservation_date, slot`,
     [venueId, startDate, endDate],
   );
 
   return result.rows.map(
     (row): PublicCalendarStatus => ({
       date: normalizeDateKey(row.reservation_date),
+      slot: row.slot,
       status: row.status,
     }),
   );
@@ -278,7 +285,11 @@ function mapListing(
     id: row.id,
     name: row.name,
     slug: row.slug,
-    priceAmount: Number(row.price_amount),
+    weekdayDayPriceAmount: Number(row.weekday_day_price_amount),
+    weekdayNightPriceAmount: Number(row.weekday_night_price_amount),
+    weekendDayPriceAmount: Number(row.weekend_day_price_amount),
+    weekendNightPriceAmount: Number(row.weekend_night_price_amount),
+    weekendIsoDays: normalizeWeekendIsoDays(row.weekend_iso_days),
     priceCurrency: row.price_currency,
     locationName: row.location_name,
     googleMapsUrl: row.google_maps_url,
@@ -316,4 +327,12 @@ function mapListing(
 
 function normalizeTime(value: string) {
   return value.slice(0, 5);
+}
+
+function normalizeWeekendIsoDays(values: number[]) {
+  return [...new Set(values)]
+    .filter((value): value is IsoWeekday =>
+      Number.isInteger(value) && value >= 1 && value <= 7,
+    )
+    .sort((left, right) => left - right);
 }

@@ -8,13 +8,22 @@ import {
   RequestChangeForm,
 } from "@/features/calendar/day-panel-forms";
 import { StatusPill } from "@/features/calendar/day-panel-controls";
+import { calendarStatusColors } from "@/lib/calendar-colors";
+import {
+  calendarSlots,
+  getCalendarSlotShortLabel,
+} from "@/lib/calendar-slots";
 import { getDateLabel } from "@/lib/dates";
 import type {
   AppUser,
   CalendarEntry,
+  CalendarSlot,
   ChangeRequest,
   Venue,
 } from "@/lib/types";
+import { cn } from "@/lib/ui";
+
+type SlotValues<T> = Partial<Record<CalendarSlot, T>>;
 
 export function DayPanel({
   user,
@@ -23,14 +32,16 @@ export function DayPanel({
   canManage,
   canRequest,
   currentDateKey,
-  entry,
+  entries = {},
   isReadOnly,
   onEntryChange,
   onPendingRequestChange,
   onPendingRequestRemove,
+  onSlotChange,
   onToast,
-  pendingRequest,
+  pendingRequests = {},
   returnTo,
+  selectedSlot,
 }: {
   user: AppUser;
   venue: Venue;
@@ -38,14 +49,20 @@ export function DayPanel({
   canRequest: boolean;
   currentDateKey: string;
   date?: string;
-  entry?: CalendarEntry;
+  entries?: SlotValues<CalendarEntry>;
   isReadOnly?: boolean;
-  onEntryChange: (date: string, entry?: CalendarEntry | null) => void;
+  onEntryChange: (
+    date: string,
+    slot: CalendarSlot,
+    entry?: CalendarEntry | null,
+  ) => void;
   onPendingRequestChange: (request?: ChangeRequest | null) => void;
   onPendingRequestRemove: (requestId: string) => void;
+  onSlotChange: (slot: CalendarSlot) => void;
   onToast: (type: "error" | "success", message: string) => void;
-  pendingRequest?: ChangeRequest;
+  pendingRequests?: SlotValues<ChangeRequest>;
   returnTo: string;
+  selectedSlot: CalendarSlot;
 }) {
   if (!date) {
     return (
@@ -61,8 +78,8 @@ export function DayPanel({
           </h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
             {isReadOnly
-              ? "Pick a day to inspect previous calendar records."
-              : "Pick a day to book it, mark it available, add notes, or review requests."}
+              ? "Pick a day to inspect its Day and Night records."
+              : "Pick a day, then manage its Day or Night reservation slot."}
           </p>
         </div>
       </aside>
@@ -72,6 +89,8 @@ export function DayPanel({
   const isReadOnlyDay = Boolean(isReadOnly || date < currentDateKey);
   const canManageDay = !isReadOnlyDay && canManage;
   const canRequestDay = !isReadOnlyDay && canRequest;
+  const entry = entries[selectedSlot];
+  const pendingRequest = pendingRequests[selectedSlot];
   const currentStatus = entry?.status ?? "available";
 
   return (
@@ -86,17 +105,21 @@ export function DayPanel({
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#EACC84]">
+            {getCalendarSlotShortLabel(selectedSlot)} use
+          </span>
           <StatusPill status={currentStatus} />
-          {pendingRequest ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-amber-800">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-              Pending
-            </span>
-          ) : null}
         </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-5 p-5 pb-4">
+        <SlotSelector
+          entries={entries}
+          onSelect={onSlotChange}
+          pendingRequests={pendingRequests}
+          selectedSlot={selectedSlot}
+        />
+
         {pendingRequest ? (
           <PendingRequestBox
             canDecide={!isReadOnlyDay && user.id === venue.assignedUserId}
@@ -116,34 +139,85 @@ export function DayPanel({
           <DirectEditForm
             date={date}
             entry={entry}
-            key={`direct-${date}-${entry?.status ?? "available"}-${entry?.note ?? ""}-${entry?.customerName ?? ""}-${entry?.customerPhone ?? ""}-${entry?.depositAmount ?? ""}-${entry?.fromTime ?? ""}-${entry?.toTime ?? ""}`}
+            key={`direct-${date}-${selectedSlot}-${entry?.status ?? "available"}-${entry?.note ?? ""}-${entry?.customerName ?? ""}-${entry?.customerPhone ?? ""}-${entry?.depositAmount ?? ""}-${entry?.fromTime ?? ""}-${entry?.toTime ?? ""}-${entry?.bookingPriceAmount ?? ""}`}
             onEntryChange={onEntryChange}
             onPendingRequestChange={onPendingRequestChange}
             onPendingRequestRemove={onPendingRequestRemove}
             onToast={onToast}
             returnTo={returnTo}
+            slot={selectedSlot}
             user={user}
             venue={venue}
           />
         ) : null}
 
-        {canRequestDay ? (
+        {canRequestDay &&
+        (!pendingRequest || pendingRequest.requestedById === user.id) ? (
           <RequestChangeForm
             date={date}
             entry={entry}
-            key={`request-${date}-${entry?.status ?? "available"}-${entry?.note ?? ""}-${entry?.customerName ?? ""}-${entry?.customerPhone ?? ""}-${entry?.depositAmount ?? ""}-${entry?.fromTime ?? ""}-${entry?.toTime ?? ""}-${pendingRequest?.requestedStatus ?? ""}-${pendingRequest?.requestedNote ?? ""}-${pendingRequest?.requestedCustomerName ?? ""}-${pendingRequest?.requestedCustomerPhone ?? ""}-${pendingRequest?.requestedDepositAmount ?? ""}-${pendingRequest?.requestedFromTime ?? ""}-${pendingRequest?.requestedToTime ?? ""}`}
+            key={`request-${date}-${selectedSlot}-${entry?.status ?? "available"}-${entry?.note ?? ""}-${pendingRequest?.requestedStatus ?? ""}-${pendingRequest?.requestedNote ?? ""}`}
             onEntryChange={onEntryChange}
             onPendingRequestChange={onPendingRequestChange}
             onPendingRequestRemove={onPendingRequestRemove}
             onToast={onToast}
             pendingRequest={pendingRequest}
             returnTo={returnTo}
+            slot={selectedSlot}
             user={user}
             venue={venue}
           />
         ) : null}
       </div>
     </aside>
+  );
+}
+
+function SlotSelector({
+  entries,
+  onSelect,
+  pendingRequests,
+  selectedSlot,
+}: {
+  entries: SlotValues<CalendarEntry>;
+  onSelect: (slot: CalendarSlot) => void;
+  pendingRequests: SlotValues<ChangeRequest>;
+  selectedSlot: CalendarSlot;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 rounded-2xl border border-[#d8e9ee] bg-[#f8fcfd] p-1.5">
+      {calendarSlots.map((slot) => {
+        const status = entries[slot]?.status ?? "available";
+        const style = calendarStatusColors[status];
+        const isSelected = selectedSlot === slot;
+
+        return (
+          <button
+            aria-pressed={isSelected}
+            className={cn(
+              "grid gap-1 rounded-xl border px-3 py-2.5 text-left transition",
+              isSelected
+                ? "border-[#007c92] bg-white shadow-sm ring-2 ring-[#007c92]/10"
+                : "border-transparent hover:bg-white/80",
+            )}
+            key={slot}
+            onClick={() => onSelect(slot)}
+            type="button"
+          >
+            <span className="text-xs font-black text-slate-900">
+              {getCalendarSlotShortLabel(slot)} use
+            </span>
+            <span className={cn("flex items-center gap-1.5 text-[10px] font-black capitalize", style.text)}>
+              <span className={cn("h-2 w-2 rounded-full", style.dot)} />
+              {status}
+              {pendingRequests[slot] ? (
+                <span className="ml-auto text-amber-700">Pending</span>
+              ) : null}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -154,7 +228,7 @@ function ReadOnlyNotice() {
         <LockKeyhole size={16} aria-hidden="true" />
       </span>
       <span>
-        Past dates are display only. Today and upcoming dates can be updated
+        Past dates are display only. Today and upcoming slots can be updated
         from this panel.
       </span>
     </div>

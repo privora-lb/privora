@@ -4,17 +4,19 @@ import { Building2, Check, ChevronDown, Search } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import type { Venue } from "@/lib/types";
+import type { CalendarSlot, Venue } from "@/lib/types";
 import { cn } from "@/lib/ui";
 
 export function VenueSwitcher({
   venues,
   selectedVenueId,
   monthKey,
+  selectedSlot,
 }: {
   venues: Venue[];
   selectedVenueId: string;
   monthKey: string;
+  selectedSlot: CalendarSlot;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -37,7 +39,12 @@ export function VenueSwitcher({
   function selectVenue(venue: Venue) {
     setQuery("");
     setIsOpen(false);
-    router.push(`/calendar?venue=${venue.id}&month=${monthKey}`);
+    const params = new URLSearchParams({
+      month: monthKey,
+      slot: selectedSlot,
+      venue: venue.id,
+    });
+    router.push(`/calendar?${params.toString()}`);
   }
 
   return (

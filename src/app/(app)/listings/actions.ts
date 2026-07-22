@@ -104,35 +104,45 @@ export async function saveListingAction(
       const listingResult = input.id
         ? await client.query<{ id: string }>(
             `UPDATE public_listings SET
-              name = $1, slug = $2, price_amount = $3,
-              price_currency = $4, location_name = $5,
-              google_maps_url = $6, pool_capacity = $7, stay_capacity = $8,
-              day_check_in = $9::time, day_check_out = $10::time,
-              night_check_in = $11::time, night_check_out = $12::time,
-              has_wifi = $13, description = $14, bedrooms = $15,
-              toilets = $16, pool_length_m = $17, pool_width_m = $18,
-              pool_depth_m = $19, phone_number = $20,
-              whatsapp_number = $21, instagram_url = $22,
-              facebook_url = $23, tiktok_url = $24, website_url = $25,
-              youtube_url = $26, calendar_venue_id = $27,
-              is_published = $28, updated_at = now()
-             WHERE id = $29
+              name = $1, slug = $2,
+              weekday_day_price_amount = $3,
+              weekday_night_price_amount = $4,
+              weekend_day_price_amount = $5,
+              weekend_night_price_amount = $6,
+              price_amount = LEAST($3, $4, $5, $6),
+              weekend_iso_days = $7::smallint[], price_currency = $8,
+              location_name = $9, google_maps_url = $10,
+              pool_capacity = $11, stay_capacity = $12,
+              day_check_in = $13::time, day_check_out = $14::time,
+              night_check_in = $15::time, night_check_out = $16::time,
+              has_wifi = $17, description = $18, bedrooms = $19,
+              toilets = $20, pool_length_m = $21, pool_width_m = $22,
+              pool_depth_m = $23, phone_number = $24,
+              whatsapp_number = $25, instagram_url = $26,
+              facebook_url = $27, tiktok_url = $28, website_url = $29,
+              youtube_url = $30, calendar_venue_id = $31,
+              is_published = $32, updated_at = now()
+             WHERE id = $33
              RETURNING id`,
-            [...values.slice(0, 28), input.id],
+            [...values.slice(0, 32), input.id],
           )
         : await client.query<{ id: string }>(
             `INSERT INTO public_listings (
-              name, slug, price_amount, price_currency, location_name,
-              google_maps_url, pool_capacity, stay_capacity, day_check_in,
-              day_check_out, night_check_in, night_check_out, has_wifi,
-              description, bedrooms, toilets, pool_length_m, pool_width_m,
-              pool_depth_m, phone_number, whatsapp_number, instagram_url,
-              facebook_url, tiktok_url, website_url, youtube_url,
-              calendar_venue_id, is_published, created_by_id
+              name, slug, weekday_day_price_amount, weekday_night_price_amount,
+              weekend_day_price_amount, weekend_night_price_amount,
+              price_amount, weekend_iso_days, price_currency, location_name, google_maps_url,
+              pool_capacity, stay_capacity, day_check_in, day_check_out,
+              night_check_in, night_check_out, has_wifi, description, bedrooms,
+              toilets, pool_length_m, pool_width_m, pool_depth_m, phone_number,
+              whatsapp_number, instagram_url, facebook_url, tiktok_url,
+              website_url, youtube_url, calendar_venue_id, is_published,
+              created_by_id
              ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9::time, $10::time,
-              $11::time, $12::time, $13, $14, $15, $16, $17, $18, $19,
-              $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
+              $1, $2, $3, $4, $5, $6, LEAST($3, $4, $5, $6),
+              $7::smallint[], $8, $9, $10, $11,
+              $12, $13::time, $14::time, $15::time, $16::time, $17, $18,
+              $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+              $31, $32, $33
              ) RETURNING id`,
             values,
           );
@@ -423,7 +433,11 @@ function getListingValues(
   return [
     input.name,
     input.slug,
-    input.priceAmount,
+    input.weekdayDayPriceAmount,
+    input.weekdayNightPriceAmount,
+    input.weekendDayPriceAmount,
+    input.weekendNightPriceAmount,
+    input.weekendIsoDays,
     input.priceCurrency,
     input.locationName,
     input.googleMapsUrl,

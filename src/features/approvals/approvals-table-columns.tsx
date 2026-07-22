@@ -10,6 +10,7 @@ import {
   getTimeRange,
 } from "@/features/calendar/calendar-detail-utils";
 import { getDateLabel } from "@/lib/dates";
+import { getCalendarSlotLabel } from "@/lib/calendar-slots";
 import type { CalendarStatus, RequestStatus } from "@/lib/types";
 import type { ApprovalDraftRow } from "@/features/approvals/approvals-table";
 
@@ -60,6 +61,22 @@ export function useApprovalsColumns(
         render: (row) => <CalendarStatusBadge status={row.requestedStatus} />,
       },
       {
+        key: "slot",
+        label: "Session",
+        baseWidth: 130,
+        minWidth: 110,
+        maxWidth: 180,
+        align: "center",
+        sortable: true,
+        textValue: (row) =>
+          row.slot ? getCalendarSlotLabel(row.slot) : "Legacy full day",
+        render: (row) => (
+          <Badge tone="neutral">
+            {row.slot ? getCalendarSlotLabel(row.slot) : "Legacy full day"}
+          </Badge>
+        ),
+      },
+      {
         key: "requestedNote",
         label: "Request details",
         baseWidth: 300,
@@ -73,6 +90,8 @@ export function useApprovalsColumns(
             customerName={row.requestedCustomerName}
             customerPhone={row.requestedCustomerPhone}
             depositAmount={row.requestedDepositAmount}
+            bookingPriceAmount={row.requestedBookingPriceAmount}
+            bookingPriceCurrency={row.requestedBookingPriceCurrency}
             fromTime={row.requestedFromTime}
             note={row.requestedNote}
             toTime={row.requestedToTime}
@@ -93,6 +112,8 @@ export function useApprovalsColumns(
             customerName={row.previousCustomerName ?? ""}
             customerPhone={row.previousCustomerPhone ?? ""}
             depositAmount={row.previousDepositAmount}
+            bookingPriceAmount={row.previousBookingPriceAmount}
+            bookingPriceCurrency={row.previousBookingPriceCurrency}
             fromTime={row.previousFromTime}
             note={row.previousNote ?? ""}
             status={row.previousStatus ?? "No entry"}
@@ -154,6 +175,8 @@ export function useApprovalsColumns(
 }
 
 function RequestDetails({
+  bookingPriceAmount,
+  bookingPriceCurrency,
   customerName,
   customerPhone,
   depositAmount,
@@ -162,6 +185,8 @@ function RequestDetails({
   status,
   toTime,
 }: {
+  bookingPriceAmount: number | null;
+  bookingPriceCurrency: string | null;
   customerName: string;
   customerPhone: string;
   depositAmount: number | null;
@@ -172,6 +197,9 @@ function RequestDetails({
 }) {
   const details = [
     status ? `Status: ${status}` : "",
+    bookingPriceAmount !== null && bookingPriceCurrency
+      ? `Agreed: ${formatCurrency(bookingPriceAmount, bookingPriceCurrency)}`
+      : "",
     customerName ? `Name: ${customerName}` : "",
     customerPhone ? `Phone: ${customerPhone}` : "",
     getTimeRange(fromTime, toTime),
@@ -201,6 +229,8 @@ function getRequestDetailsText(row: ApprovalDraftRow) {
     row.requestedFromTime,
     row.requestedToTime,
     row.requestedDepositAmount,
+    row.requestedBookingPriceAmount,
+    row.requestedBookingPriceCurrency,
     row.requestedNote,
   ]
     .filter((value) => value !== null && value !== "")
@@ -215,10 +245,20 @@ function getPreviousStateText(row: ApprovalDraftRow) {
     row.previousFromTime,
     row.previousToTime,
     row.previousDepositAmount,
+    row.previousBookingPriceAmount,
+    row.previousBookingPriceCurrency,
     row.previousNote,
   ]
     .filter((value) => value !== null && value !== "")
     .join(" ");
+}
+
+function formatCurrency(amount: number, currency: string) {
+  return new Intl.NumberFormat("en-US", {
+    currency,
+    maximumFractionDigits: 2,
+    style: "currency",
+  }).format(amount);
 }
 
 function RequestStatusBadge({ status }: { status: RequestStatus }) {

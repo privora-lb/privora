@@ -1,12 +1,19 @@
 "use client";
 
-import { Plus } from "lucide-react";
-
 import {
   calendarStatusColors,
   pendingCalendarColor,
 } from "@/lib/calendar-colors";
-import type { CalendarEntry, ChangeRequest } from "@/lib/types";
+import {
+  calendarSlots,
+  getCalendarSlotKey,
+  getCalendarSlotShortLabel,
+} from "@/lib/calendar-slots";
+import type {
+  CalendarEntry,
+  CalendarSlot,
+  ChangeRequest,
+} from "@/lib/types";
 import { cn } from "@/lib/ui";
 
 const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -19,25 +26,25 @@ export type CalendarGridDay = {
 };
 
 export function CalendarGrid({
-  approvedAdminBookedDates,
+  approvedAdminBookedSlots,
   className,
   currentDateKey,
   days,
   isReadOnlyMonth,
   onSelectDate,
   selectedDate,
-  entriesByDate,
-  requestsByDate,
+  entriesBySlot,
+  requestsBySlot,
 }: {
-  approvedAdminBookedDates: Set<string>;
+  approvedAdminBookedSlots: Set<string>;
   className?: string;
   currentDateKey: string;
   days: CalendarGridDay[];
   isReadOnlyMonth?: boolean;
   onSelectDate: (dateKey: string) => void;
   selectedDate?: string;
-  entriesByDate: Map<string, CalendarEntry>;
-  requestsByDate: Map<string, ChangeRequest>;
+  entriesBySlot: Map<string, CalendarEntry>;
+  requestsBySlot: Map<string, ChangeRequest>;
 }) {
   return (
     <section
@@ -50,8 +57,8 @@ export function CalendarGrid({
         <div className="grid grid-cols-7 border-b border-[#d8e9ee] bg-[#f8fcfd]">
           {weekdayLabels.map((label) => (
             <div
-              key={label}
               className="px-3 py-3 text-center text-[11px] font-black uppercase tracking-[0.16em] text-[#35717d]"
+              key={label}
             >
               {label}
             </div>
@@ -60,31 +67,44 @@ export function CalendarGrid({
 
         <div className="grid grid-cols-7">
           {days.map((day) => {
-            const entry = entriesByDate.get(day.dateKey);
-            const request = requestsByDate.get(day.dateKey);
             const isSelected = selectedDate === day.dateKey;
-            const currentStatus = entry?.status ?? "available";
-            const statusStyle = calendarStatusColors[currentStatus];
-            const showAdminBookedMarker =
-              currentStatus === "booked" &&
-              approvedAdminBookedDates.has(day.dateKey);
-            const displayCustomerName =
-              entry?.customerName || request?.requestedCustomerName || "";
-            const displayCustomerPhone =
-              entry?.customerPhone || request?.requestedCustomerPhone || "";
             const isReadOnlyDay = isReadOnlyMonth || day.dateKey < currentDateKey;
-            const cellClassName = cn(
-              "relative flex min-h-[132px] touch-manipulation flex-col items-center border-b border-r border-[#e1eef2] p-3 text-center transition last:border-r-0 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#007c92]",
-              day.inMonth
-                ? statusStyle.cell
-                : "bg-slate-50 text-slate-400 opacity-70",
-              isSelected && "ring-2 ring-inset ring-[#007c92]",
-            );
-            const cellContent = (
-              <>
-                {day.inMonth && showAdminBookedMarker ? (
-                  <AdminBookedMarker />
-                ) : null}
+            const slotStates = calendarSlots.map((slot) => {
+              const key = getCalendarSlotKey(day.dateKey, slot);
+              const entry = entriesBySlot.get(key);
+              const request = requestsBySlot.get(key);
+
+              return {
+                entry,
+                isAdminBooked:
+                  entry?.status === "booked" &&
+                  approvedAdminBookedSlots.has(key),
+                request,
+                slot,
+                status: entry?.status ?? "available",
+              };
+            });
+            const ariaStatus = slotStates
+              .map(
+                ({ request, slot, status }) =>
+                  `${getCalendarSlotShortLabel(slot)} ${status}${request ? ", pending change" : ""}`,
+              )
+              .join("; ");
+
+            return (
+              <button
+                aria-label={`${day.dateKey}: ${day.inMonth ? ariaStatus : "outside month"}`}
+                className={cn(
+                  "relative flex min-h-[150px] touch-manipulation flex-col items-center border-b border-r border-[#e1eef2] p-2.5 text-center transition last:border-r-0 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#007c92]",
+                  day.inMonth
+                    ? "bg-white text-slate-900 hover:bg-[#f8fcfd]"
+                    : "bg-slate-50 text-slate-400 opacity-70",
+                  isSelected && "ring-2 ring-inset ring-[#007c92]",
+                )}
+                key={day.dateKey}
+                onClick={() => onSelectDate(day.dateKey)}
+                type="button"
+              >
                 <span
                   className={cn(
                     "inline-grid h-8 min-w-8 place-items-center rounded-lg border px-2 text-[13px] font-black shadow-[0_8px_18px_rgba(15,23,42,0.07)]",
@@ -97,64 +117,20 @@ export function CalendarGrid({
                 </span>
 
                 {day.inMonth ? (
-                  <div className="mt-2.5 grid w-full justify-items-center gap-1.5">
-                    <div className="grid min-w-0 justify-items-center gap-1">
-                      <CalendarStatusBadge
-                        dotClassName={statusStyle.dot}
-                        label={currentStatus}
-                        labelClassName={statusStyle.label}
+                  <div className="mt-2 grid w-full gap-1.5">
+                    {slotStates.map((state) => (
+                      <SlotStatusRow
+                        entry={state.entry}
+                        isAdminBooked={state.isAdminBooked}
+                        isReadOnly={Boolean(isReadOnlyDay)}
+                        key={state.slot}
+                        request={state.request}
+                        slot={state.slot}
+                        status={state.status}
                       />
-                      {request ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-white/80 px-2 py-0.5 text-[9px] font-black text-amber-800">
-                          <span
-                            className={cn(
-                              "h-1.5 w-1.5 rounded-full",
-                              pendingCalendarColor.dot,
-                            )}
-                          />
-                          Pending
-                        </span>
-                      ) : null}
-                    </div>
-                    {displayCustomerName || displayCustomerPhone ? (
-                      <CustomerSummary
-                        name={displayCustomerName}
-                        phone={displayCustomerPhone}
-                      />
-                    ) : !request && entry ? (
-                      <span className="text-center text-[11px] font-bold text-slate-500">
-                        No customer details
-                      </span>
-                    ) : !request && isReadOnlyDay ? (
-                      <span className="text-center text-[11px] font-black text-[#337946]">
-                        Available
-                      </span>
-                    ) : !request ? (
-                      <span className="inline-flex items-center justify-center gap-1.5 text-center text-[11px] font-black text-[#337946]">
-                        <Plus size={13} aria-hidden="true" />
-                        Add day
-                      </span>
-                    ) : null}
-
-                    {request ? (
-                      <PendingRequestPanel
-                        currentStatus={currentStatus}
-                        request={request}
-                      />
-                    ) : null}
+                    ))}
                   </div>
                 ) : null}
-              </>
-            );
-
-            return (
-              <button
-                key={day.dateKey}
-                className={cellClassName}
-                onClick={() => onSelectDate(day.dateKey)}
-                type="button"
-              >
-                {cellContent}
               </button>
             );
           })}
@@ -164,67 +140,67 @@ export function CalendarGrid({
   );
 }
 
-function AdminBookedMarker() {
-  return (
-    <span
-      aria-label="Booked by superadmin request"
-      className="absolute left-2.5 top-2.5 z-10 grid h-5 w-5 place-items-center rounded-full bg-[#2563eb] text-[10px] font-black leading-none text-white shadow-[0_8px_16px_rgba(37,99,235,0.28)] ring-2 ring-white/80"
-      title="Booked by superadmin request"
-    >
-      P
-    </span>
-  );
-}
-
-function CustomerSummary({ name, phone }: { name: string; phone: string }) {
-  return (
-    <span className="grid max-w-full justify-items-center gap-0.5 text-center leading-tight">
-      {name ? (
-        <span className="line-clamp-1 max-w-full text-[11px] font-black text-slate-800">
-          {name}
-        </span>
-      ) : null}
-      {phone ? (
-        <span className="line-clamp-1 max-w-full text-[10px] font-bold text-slate-500">
-          {phone}
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
-function PendingRequestPanel({
-  currentStatus,
+function SlotStatusRow({
+  entry,
+  isAdminBooked,
+  isReadOnly,
   request,
+  slot,
+  status,
 }: {
-  currentStatus: CalendarEntry["status"] | "available";
-  request: ChangeRequest;
+  entry?: CalendarEntry;
+  isAdminBooked: boolean;
+  isReadOnly: boolean;
+  request?: ChangeRequest;
+  slot: CalendarSlot;
+  status: CalendarEntry["status"] | "available";
 }) {
-  return (
-    <span className="line-clamp-2 rounded-lg border border-amber-300 bg-amber-50/95 px-2 py-1.5 text-center text-[9px] font-bold leading-[1.25] text-amber-900 shadow-[0_8px_16px_rgba(146,64,14,0.07)]">
-      changed from {currentStatus} to {request.requestedStatus}
-    </span>
-  );
-}
+  const style = calendarStatusColors[status];
+  const customerName = entry?.customerName || request?.requestedCustomerName;
 
-function CalendarStatusBadge({
-  dotClassName,
-  label,
-  labelClassName,
-}: {
-  dotClassName: string;
-  label: string;
-  labelClassName: string;
-}) {
   return (
     <span
       className={cn(
-        "inline-flex min-w-0 w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black capitalize",
-        labelClassName,
+        "grid min-w-0 grid-cols-[34px_1fr_auto] items-center gap-1 rounded-lg border bg-white px-1.5 py-1.5 text-left",
+        request ? pendingCalendarColor.border : style.border,
       )}
     >
-      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotClassName)} />
-      <span className="truncate">{label}</span>
+      <span className="text-[9px] font-black uppercase tracking-[0.06em] text-slate-500">
+        {getCalendarSlotShortLabel(slot)}
+      </span>
+      <span className="min-w-0">
+        <span className={cn("flex items-center gap-1 text-[9px] font-black capitalize", style.text)}>
+          <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", style.dot)} />
+          <span className="truncate">{status}</span>
+        </span>
+        {customerName ? (
+          <span className="block truncate text-[8px] font-bold text-slate-500">
+            {customerName}
+          </span>
+        ) : !isReadOnly && status === "available" ? (
+          <span className="block truncate text-[8px] font-bold text-slate-400">
+            Open slot
+          </span>
+        ) : null}
+      </span>
+      <span className="flex items-center gap-1">
+        {isAdminBooked ? (
+          <span
+            aria-label={`Booked by superadmin request for ${getCalendarSlotShortLabel(slot)}`}
+            className="grid h-4 w-4 place-items-center rounded-full bg-[#2563eb] text-[8px] font-black text-white"
+            title="Booked by superadmin request"
+          >
+            P
+          </span>
+        ) : null}
+        {request ? (
+          <span
+            aria-label={`Pending ${getCalendarSlotShortLabel(slot)} request`}
+            className={cn("h-2 w-2 rounded-full", pendingCalendarColor.dot)}
+            title="Pending request"
+          />
+        ) : null}
+      </span>
     </span>
   );
 }

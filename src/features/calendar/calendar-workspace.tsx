@@ -22,6 +22,7 @@ import {
   calendarStatusColors,
   pendingCalendarColor,
 } from "@/lib/calendar-colors";
+import { calendarSlots, getCalendarSlotKey } from "@/lib/calendar-slots";
 import {
   getMonthLabel,
   getWeekDays,
@@ -30,12 +31,13 @@ import {
 import type {
   AppUser,
   CalendarEntry,
+  CalendarSlot,
   ChangeRequest,
   Venue,
 } from "@/lib/types";
 
 export function CalendarWorkspace({
-  approvedAdminBookedDates,
+  approvedAdminBookedSlots,
   canManage,
   canRequest,
   currentDateKey,
@@ -44,6 +46,7 @@ export function CalendarWorkspace({
   entries,
   initialMobileDate,
   initialSelectedDate,
+  initialSelectedSlot = "day",
   isReadOnlyMonth,
   monthKey,
   pendingRequests,
@@ -51,7 +54,7 @@ export function CalendarWorkspace({
   user,
   venues,
 }: {
-  approvedAdminBookedDates: string[];
+  approvedAdminBookedSlots: { date: string; slot: CalendarSlot }[];
   canManage: boolean;
   canRequest: boolean;
   currentDateKey: string;
@@ -60,6 +63,7 @@ export function CalendarWorkspace({
   entries: CalendarEntry[];
   initialMobileDate: string;
   initialSelectedDate?: string;
+  initialSelectedSlot?: CalendarSlot;
   isReadOnlyMonth: boolean;
   monthKey: string;
   pendingRequests: ChangeRequest[];
@@ -70,6 +74,8 @@ export function CalendarWorkspace({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(initialSelectedDate);
+  const [selectedSlot, setSelectedSlot] =
+    useState<CalendarSlot>(initialSelectedSlot);
   const [entryOverrides, setEntryOverrides] = useState<
     Record<string, CalendarEntry | null>
   >({});
@@ -77,35 +83,48 @@ export function CalendarWorkspace({
     Record<string, ChangeRequest | null>
   >({});
   const { dismissToast, pushToast, toasts } = useCmsToasts();
-  const entriesByDate = useMemo(() => {
-    const map = new Map(entries.map((entry) => [entry.date, entry]));
+  const entriesBySlot = useMemo(() => {
+    const map = new Map(
+      entries.map((entry) => [getCalendarSlotKey(entry.date, entry.slot), entry]),
+    );
 
-    Object.entries(entryOverrides).forEach(([dateKey, entry]) => {
+    Object.entries(entryOverrides).forEach(([slotKey, entry]) => {
       if (entry) {
-        map.set(dateKey, entry);
+        map.set(slotKey, entry);
       } else {
-        map.delete(dateKey);
+        map.delete(slotKey);
       }
     });
 
     return map;
   }, [entries, entryOverrides]);
-  const requestsByDate = useMemo(() => {
-    const map = new Map(pendingRequests.map((request) => [request.date, request]));
+  const requestsBySlot = useMemo(() => {
+    const map = new Map(
+      pendingRequests.flatMap((request) =>
+        request.slot
+          ? [[getCalendarSlotKey(request.date, request.slot), request] as const]
+          : [],
+      ),
+    );
 
-    Object.entries(requestOverrides).forEach(([dateKey, request]) => {
+    Object.entries(requestOverrides).forEach(([slotKey, request]) => {
       if (request) {
-        map.set(dateKey, request);
+        map.set(slotKey, request);
       } else {
-        map.delete(dateKey);
+        map.delete(slotKey);
       }
     });
 
     return map;
   }, [pendingRequests, requestOverrides]);
-  const approvedAdminBookedDatesSet = useMemo(
-    () => new Set(approvedAdminBookedDates),
-    [approvedAdminBookedDates],
+  const approvedAdminBookedSlotsSet = useMemo(
+    () =>
+      new Set(
+        approvedAdminBookedSlots.map(({ date, slot }) =>
+          getCalendarSlotKey(date, slot),
+        ),
+      ),
+    [approvedAdminBookedSlots],
   );
   const statusCounts = useMemo(() => {
     return days.reduce(
@@ -114,24 +133,24 @@ export function CalendarWorkspace({
           return counts;
         }
 
-        if (requestsByDate.has(day.dateKey)) {
-          counts.pending += 1;
-          return counts;
-        }
+        calendarSlots.forEach((slot) => {
+          const slotKey = getCalendarSlotKey(day.dateKey, slot);
 
-        const status = entriesByDate.get(day.dateKey)?.status ?? "available";
+          if (requestsBySlot.has(slotKey)) {
+            counts.pending += 1;
+          }
 
-        if (status === "booked") {
-          counts.booked += 1;
-        } else {
-          counts.available += 1;
-        }
+          const status = entriesBySlot.get(slotKey)?.status ?? "available";
+
+          if (status === "booked") counts.booked += 1;
+          else counts.available += 1;
+        });
 
         return counts;
       },
       { available: 0, booked: 0, pending: 0 },
     );
-  }, [days, entriesByDate, requestsByDate]);
+  }, [days, entriesBySlot, requestsBySlot]);
   const [mobileCalendarMode, setMobileCalendarMode] =
     useState<MobileCalendarMode>(() =>
       searchParams.get("view") === "full" ? "full" : "compact",
@@ -139,10 +158,10 @@ export function CalendarWorkspace({
   const selectedMobileDate = selectedDate ?? initialMobileDate;
   const returnTo = `/calendar?venue=${selectedVenue.id}&month=${monthKey}${
     selectedDate ? `&date=${selectedDate}` : ""
-  }`;
+  }&slot=${selectedSlot}`;
   const mobileReturnTo =
     `/calendar?venue=${selectedVenue.id}&month=${selectedMobileDate.slice(0, 7)}` +
-    `&date=${selectedMobileDate}`;
+    `&date=${selectedMobileDate}&slot=${selectedSlot}`;
   const currentMonth = parseDateKey(`${monthKey}-01`);
   const isSelectedDateReadOnly = selectedDate
     ? selectedDate < currentDateKey
@@ -155,6 +174,7 @@ export function CalendarWorkspace({
       const urlVenueId = params.get("venue");
       const urlMonthKey = params.get("month") ?? currentMonthKey;
       const urlDate = params.get("date");
+      const urlSlot = params.get("slot");
 
       if (urlVenueId && urlVenueId !== selectedVenue.id) {
         return;
@@ -165,6 +185,7 @@ export function CalendarWorkspace({
       }
 
       setSelectedDate(urlDate?.slice(0, 7) === monthKey ? urlDate : undefined);
+      setSelectedSlot(urlSlot === "night" ? "night" : "day");
     }
 
     window.addEventListener("popstate", syncSelectedDateFromUrl);
@@ -180,6 +201,7 @@ export function CalendarWorkspace({
         getCalendarHref({
           date: dateKey,
           month: dateKey.slice(0, 7),
+          slot: selectedSlot,
           venueId: selectedVenue.id,
           view: mobileCalendarMode,
         }),
@@ -195,6 +217,7 @@ export function CalendarWorkspace({
       getCalendarHref({
         date: dateKey,
         month: monthKey,
+        slot: selectedSlot,
         venueId: selectedVenue.id,
         view: mobileCalendarMode,
       }),
@@ -209,14 +232,35 @@ export function CalendarWorkspace({
       getCalendarHref({
         date: selectedMobileDate,
         month: monthKey,
+        slot: selectedSlot,
         venueId: selectedVenue.id,
         view: nextMode,
       }),
     );
   }
 
-  function replaceEntry(dateKey: string, entry?: CalendarEntry | null) {
-    setEntryOverrides((current) => ({ ...current, [dateKey]: entry ?? null }));
+  function selectSlot(slot: CalendarSlot) {
+    setSelectedSlot(slot);
+    window.history.replaceState(
+      null,
+      "",
+      getCalendarHref({
+        date: selectedDate ?? selectedMobileDate,
+        month: monthKey,
+        slot,
+        venueId: selectedVenue.id,
+        view: mobileCalendarMode,
+      }),
+    );
+  }
+
+  function replaceEntry(
+    dateKey: string,
+    slot: CalendarSlot,
+    entry?: CalendarEntry | null,
+  ) {
+    const slotKey = getCalendarSlotKey(dateKey, slot);
+    setEntryOverrides((current) => ({ ...current, [slotKey]: entry ?? null }));
   }
 
   function replacePendingRequest(request?: ChangeRequest | null) {
@@ -224,7 +268,10 @@ export function CalendarWorkspace({
       return;
     }
 
-    setRequestOverrides((current) => ({ ...current, [request.date]: request }));
+    if (!request.slot) return;
+
+    const slotKey = getCalendarSlotKey(request.date, request.slot);
+    setRequestOverrides((current) => ({ ...current, [slotKey]: request }));
   }
 
   function removePendingRequest(requestId: string) {
@@ -233,13 +280,13 @@ export function CalendarWorkspace({
     setRequestOverrides((current) => {
       const next = { ...current };
 
-      if (serverRequest) {
-        next[serverRequest.date] = null;
+      if (serverRequest?.slot) {
+        next[getCalendarSlotKey(serverRequest.date, serverRequest.slot)] = null;
       }
 
       Object.values(current).forEach((request) => {
-        if (request?.id === requestId) {
-          next[request.date] = null;
+        if (request?.id === requestId && request.slot) {
+          next[getCalendarSlotKey(request.date, request.slot)] = null;
         }
       });
 
@@ -275,13 +322,13 @@ export function CalendarWorkspace({
             <CalendarLegendItem
               count={statusCounts.available}
               dotClassName={calendarStatusColors.available.dot}
-              label="Available"
+              label="Available slots"
               labelClassName={calendarStatusColors.available.label}
             />
             <CalendarLegendItem
               count={statusCounts.booked}
               dotClassName={calendarStatusColors.booked.dot}
-              label="Booked"
+              label="Booked slots"
               labelClassName={calendarStatusColors.booked.label}
             />
             <CalendarLegendItem
@@ -297,6 +344,7 @@ export function CalendarWorkspace({
           <div className="min-w-0">
             <VenueSwitcher
               monthKey={monthKey}
+              selectedSlot={selectedSlot}
               selectedVenueId={selectedVenue.id}
               venues={venues}
             />
@@ -307,10 +355,11 @@ export function CalendarWorkspace({
           <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-[#EACC84]">
             Change date
           </span>
-          <MonthSelector
-            key={monthKey}
-            monthKey={monthKey}
-            selectedVenueId={selectedVenue.id}
+            <MonthSelector
+              key={monthKey}
+              monthKey={monthKey}
+              selectedSlot={selectedSlot}
+              selectedVenueId={selectedVenue.id}
             view={mobileCalendarMode}
           />
         </div>
@@ -324,13 +373,13 @@ export function CalendarWorkspace({
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] max-[760px]:hidden">
           <CalendarGrid
-            approvedAdminBookedDates={approvedAdminBookedDatesSet}
+            approvedAdminBookedSlots={approvedAdminBookedSlotsSet}
             currentDateKey={currentDateKey}
             days={days}
-            entriesByDate={entriesByDate}
+            entriesBySlot={entriesBySlot}
             isReadOnlyMonth={isReadOnlyMonth}
             onSelectDate={selectDate}
-            requestsByDate={requestsByDate}
+            requestsBySlot={requestsBySlot}
             selectedDate={selectedDate}
           />
           <DayPanel
@@ -338,16 +387,24 @@ export function CalendarWorkspace({
             canRequest={canRequest}
             currentDateKey={currentDateKey}
             date={selectedDate}
-            entry={selectedDate ? entriesByDate.get(selectedDate) : undefined}
+            entries={
+              selectedDate
+                ? getDateSlotValues(entriesBySlot, selectedDate)
+                : undefined
+            }
             isReadOnly={isSelectedDateReadOnly}
             onEntryChange={replaceEntry}
             onPendingRequestChange={replacePendingRequest}
             onPendingRequestRemove={removePendingRequest}
+            onSlotChange={selectSlot}
             onToast={pushToast}
-            pendingRequest={
-              selectedDate ? requestsByDate.get(selectedDate) : undefined
+            pendingRequests={
+              selectedDate
+                ? getDateSlotValues(requestsBySlot, selectedDate)
+                : undefined
             }
             returnTo={returnTo}
+            selectedSlot={selectedSlot}
             user={user}
             venue={selectedVenue}
           />
@@ -355,12 +412,12 @@ export function CalendarWorkspace({
 
         {mobileCalendarMode === "compact" ? (
           <MobileCalendarView
-            approvedAdminBookedDates={approvedAdminBookedDatesSet}
+            approvedAdminBookedSlots={approvedAdminBookedSlotsSet}
             currentMonth={currentMonth}
-            entriesByDate={entriesByDate}
+            entriesBySlot={entriesBySlot}
             isReadOnlyMonth={isReadOnlyMonth}
             onSelectDate={selectDate}
-            requestsByDate={requestsByDate}
+            requestsBySlot={requestsBySlot}
             selectedDate={selectedMobileDate}
             selectedWeekDays={getWeekDays(selectedMobileDate)}
           />
@@ -371,14 +428,14 @@ export function CalendarWorkspace({
             </div>
             <div className="max-w-full overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
               <CalendarGrid
-                approvedAdminBookedDates={approvedAdminBookedDatesSet}
+                approvedAdminBookedSlots={approvedAdminBookedSlotsSet}
                 className="[-webkit-overflow-scrolling:touch]"
                 currentDateKey={currentDateKey}
                 days={days}
-                entriesByDate={entriesByDate}
+                entriesBySlot={entriesBySlot}
                 isReadOnlyMonth={isReadOnlyMonth}
                 onSelectDate={selectDate}
-                requestsByDate={requestsByDate}
+                requestsBySlot={requestsBySlot}
                 selectedDate={selectedMobileDate}
               />
             </div>
@@ -391,14 +448,19 @@ export function CalendarWorkspace({
             canRequest={canRequest}
             currentDateKey={currentDateKey}
             date={selectedMobileDate}
-            entry={entriesByDate.get(selectedMobileDate)}
+            entries={getDateSlotValues(entriesBySlot, selectedMobileDate)}
             isReadOnly={isMobileDateReadOnly}
             onEntryChange={replaceEntry}
             onPendingRequestChange={replacePendingRequest}
             onPendingRequestRemove={removePendingRequest}
+            onSlotChange={selectSlot}
             onToast={pushToast}
-            pendingRequest={requestsByDate.get(selectedMobileDate)}
+            pendingRequests={getDateSlotValues(
+              requestsBySlot,
+              selectedMobileDate,
+            )}
             returnTo={mobileReturnTo}
+            selectedSlot={selectedSlot}
             user={user}
             venue={selectedVenue}
           />
@@ -408,19 +470,31 @@ export function CalendarWorkspace({
   );
 }
 
+function getDateSlotValues<T>(values: Map<string, T>, date: string) {
+  return Object.fromEntries(
+    calendarSlots.flatMap((slot) => {
+      const value = values.get(getCalendarSlotKey(date, slot));
+      return value ? [[slot, value]] : [];
+    }),
+  ) as Partial<Record<CalendarSlot, T>>;
+}
+
 function getCalendarHref({
   date,
   month,
+  slot,
   venueId,
   view,
 }: {
   date?: string;
   month: string;
+  slot: CalendarSlot;
   venueId: string;
   view: MobileCalendarMode;
 }) {
   const params = new URLSearchParams({
     month,
+    slot,
     venue: venueId,
     view,
   });

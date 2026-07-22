@@ -26,9 +26,11 @@ import {
   createOptimisticEntry,
   createOptimisticRequest,
 } from "@/features/calendar/day-panel-optimistic";
+import { getCalendarSlotShortLabel } from "@/lib/calendar-slots";
 import type {
   AppUser,
   CalendarEntry,
+  CalendarSlot,
   ChangeRequest,
   Venue,
 } from "@/lib/types";
@@ -38,12 +40,17 @@ type ToastType = "error" | "success";
 type DayPanelFormProps = {
   date: string;
   entry?: CalendarEntry;
-  onEntryChange: (date: string, entry?: CalendarEntry | null) => void;
+  onEntryChange: (
+    date: string,
+    slot: CalendarSlot,
+    entry?: CalendarEntry | null,
+  ) => void;
   onPendingRequestChange: (request?: ChangeRequest | null) => void;
   onPendingRequestRemove: (requestId: string) => void;
   onToast: (type: ToastType, message: string) => void;
   pendingRequest?: ChangeRequest;
   returnTo: string;
+  slot: CalendarSlot;
   user: AppUser;
   venue: Venue;
 };
@@ -73,23 +80,36 @@ export function PendingRequestBox({
   const [pendingDecision, setPendingDecision] = useState<
     "approved" | "rejected" | null
   >(null);
+  const slot = pendingRequest.slot ?? entry?.slot ?? "day";
   const currentStatus = entry?.status ?? "available";
-  const currentNote = entry?.note || "No current note for this day.";
+  const currentNote = entry?.note || "No current note for this slot.";
   const requestNote = pendingRequest.requestedNote || "No request note supplied.";
-  const currentDetails = getCalendarDetails({
-    customerName: entry?.customerName ?? "",
-    customerPhone: entry?.customerPhone ?? "",
-    depositAmount: entry?.depositAmount ?? null,
-    fromTime: entry?.fromTime ?? null,
-    toTime: entry?.toTime ?? null,
-  });
-  const requestedDetails = getCalendarDetails({
-    customerName: pendingRequest.requestedCustomerName,
-    customerPhone: pendingRequest.requestedCustomerPhone,
-    depositAmount: pendingRequest.requestedDepositAmount,
-    fromTime: pendingRequest.requestedFromTime,
-    toTime: pendingRequest.requestedToTime,
-  });
+  const currentDetails = [
+    ...getCalendarDetails({
+      customerName: entry?.customerName ?? "",
+      customerPhone: entry?.customerPhone ?? "",
+      depositAmount: entry?.depositAmount ?? null,
+      fromTime: entry?.fromTime ?? null,
+      toTime: entry?.toTime ?? null,
+    }),
+    formatBookingPriceLine(
+      entry?.bookingPriceAmount ?? null,
+      entry?.bookingPriceCurrency ?? null,
+    ),
+  ].filter(Boolean);
+  const requestedDetails = [
+    ...getCalendarDetails({
+      customerName: pendingRequest.requestedCustomerName,
+      customerPhone: pendingRequest.requestedCustomerPhone,
+      depositAmount: pendingRequest.requestedDepositAmount,
+      fromTime: pendingRequest.requestedFromTime,
+      toTime: pendingRequest.requestedToTime,
+    }),
+    formatBookingPriceLine(
+      pendingRequest.requestedBookingPriceAmount,
+      pendingRequest.requestedBookingPriceCurrency,
+    ),
+  ].filter(Boolean);
 
   async function handleDecisionSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,6 +132,7 @@ export function PendingRequestBox({
     if (decision === "approved") {
       onEntryChange(
         pendingRequest.date,
+        slot,
         createEntryFromRequest(pendingRequest, previousEntry),
       );
     }
@@ -125,7 +146,7 @@ export function PendingRequestBox({
     }
 
     onPendingRequestChange(pendingRequest);
-    onEntryChange(pendingRequest.date, previousEntry);
+    onEntryChange(pendingRequest.date, slot, previousEntry);
     onToast("error", result.message);
   }
 
@@ -133,10 +154,10 @@ export function PendingRequestBox({
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[#92400e]">
       <div className="flex items-center gap-2 text-sm font-black text-[#92400e]">
         <Clock3 size={16} />
-        Pending approval request
+        Pending {getCalendarSlotShortLabel(slot).toLowerCase()} approval request
       </div>
       <div className="mt-3 grid gap-3">
-        <PendingInfo title="Current saved day">
+        <PendingInfo title={`Current ${getCalendarSlotShortLabel(slot).toLowerCase()} slot`}>
           <p className="mt-1 text-sm font-black capitalize">
             Status: {currentStatus}
           </p>
@@ -195,6 +216,7 @@ export function DirectEditForm({
   onEntryChange,
   onToast,
   returnTo,
+  slot,
   user,
   venue,
 }: DayPanelFormProps) {
@@ -210,18 +232,18 @@ export function DirectEditForm({
     const formData = new FormData(event.currentTarget);
     const optimisticEntry = createOptimisticEntry(formData, entry, user, venue);
     setIsPending(true);
-    onEntryChange(date, optimisticEntry);
+    onEntryChange(date, slot, optimisticEntry);
 
     const result = await saveCalendarEntryInlineAction(formData);
     setIsPending(false);
 
     if (result.ok) {
-      onEntryChange(date, result.entry);
+      onEntryChange(date, slot, result.entry);
       onToast("success", result.message);
       return;
     }
 
-    onEntryChange(date, entry);
+    onEntryChange(date, slot, entry);
     onToast("error", result.message);
   }
 
@@ -234,14 +256,17 @@ export function DirectEditForm({
     >
       <input name="venueId" type="hidden" value={venue.id} />
       <input name="date" type="hidden" value={date} />
+      <input name="slot" type="hidden" value={slot} />
       <input name="returnTo" type="hidden" value={returnTo} />
 
       <FormHeader
         icon={<CalendarCheck size={17} aria-hidden="true" />}
-        title="Manage day"
+        title={`Manage ${getCalendarSlotShortLabel(slot).toLowerCase()} use`}
       />
 
       <CalendarDayFields
+        bookingPriceAmount={entry?.bookingPriceAmount ?? null}
+        bookingPriceCurrency={entry?.bookingPriceCurrency ?? null}
         defaultCustomerName={entry?.customerName ?? ""}
         defaultCustomerPhone={entry?.customerPhone ?? ""}
         defaultDepositAmount={entry?.depositAmount ?? null}
@@ -267,6 +292,7 @@ export function RequestChangeForm({
   onToast,
   pendingRequest,
   returnTo,
+  slot,
   user,
   venue,
 }: DayPanelFormProps) {
@@ -317,14 +343,25 @@ export function RequestChangeForm({
     >
       <input name="venueId" type="hidden" value={venue.id} />
       <input name="date" type="hidden" value={date} />
+      <input name="slot" type="hidden" value={slot} />
       <input name="returnTo" type="hidden" value={returnTo} />
 
       <FormHeader
         icon={<Send size={17} aria-hidden="true" />}
-        title="Request change"
+        title={`Request ${getCalendarSlotShortLabel(slot).toLowerCase()} change`}
       />
 
       <CalendarDayFields
+        bookingPriceAmount={
+          pendingRequest?.requestedBookingPriceAmount ??
+          entry?.bookingPriceAmount ??
+          null
+        }
+        bookingPriceCurrency={
+          pendingRequest?.requestedBookingPriceCurrency ??
+          entry?.bookingPriceCurrency ??
+          null
+        }
         defaultCustomerName={
           pendingRequest?.requestedCustomerName ?? entry?.customerName ?? ""
         }
@@ -354,6 +391,18 @@ export function RequestChangeForm({
 
 function getCalendarDetails(details: Parameters<typeof getCalendarDetailLines>[0]) {
   return getCalendarDetailLines(details);
+}
+
+function formatBookingPriceLine(amount: number | null, currency: string | null) {
+  if (amount === null || !currency) return "";
+
+  const price = new Intl.NumberFormat("en-US", {
+    currency,
+    maximumFractionDigits: 2,
+    style: "currency",
+  }).format(amount);
+
+  return `Agreed price: ${price}`;
 }
 
 function CalendarDetailsList({

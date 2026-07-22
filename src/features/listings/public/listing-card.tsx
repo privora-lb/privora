@@ -3,7 +3,10 @@ import Link from "next/link";
 
 import { ListingImage } from "@/features/listings/listing-image";
 import type { PublicListing } from "@/features/listings/types";
-import { formatListingPrice } from "@/features/listings/utils";
+import {
+  formatListingPrice,
+  getListingStartingPrice,
+} from "@/features/listings/utils";
 
 export function ListingCard({ listing, priority }: { listing: PublicListing; priority?: boolean }) {
   const cover = listing.images[0];
@@ -24,7 +27,11 @@ export function ListingCard({ listing, priority }: { listing: PublicListing; pri
           />
         ) : null}
         <span className="absolute right-3 top-3 rounded-md bg-[#123C36]/92 px-3 py-1.5 text-xs font-black text-white shadow-lg backdrop-blur-sm">
-          {formatListingPrice(listing.priceAmount, listing.priceCurrency)}
+          From{" "}
+          {formatListingPrice(
+            getListingStartingPrice(listing),
+            listing.priceCurrency,
+          )}
         </span>
       </div>
       <div className="grid gap-4 p-4 sm:p-5">

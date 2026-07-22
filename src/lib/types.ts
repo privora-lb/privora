@@ -1,5 +1,6 @@
 export type UserRole = "superadmin" | "owner";
 export type CalendarStatus = "booked" | "available";
+export type CalendarSlot = "day" | "night";
 export type RequestStatus = "pending" | "approved" | "rejected";
 
 export type AppUser = {
@@ -35,6 +36,7 @@ export type CalendarEntry = {
   id: string;
   venueId: string;
   date: string;
+  slot: CalendarSlot;
   status: CalendarStatus;
   note: string;
   customerName: string;
@@ -42,6 +44,8 @@ export type CalendarEntry = {
   depositAmount: number | null;
   fromTime: string | null;
   toTime: string | null;
+  bookingPriceAmount: number | null;
+  bookingPriceCurrency: string | null;
   createdByName: string;
   updatedByName: string;
 };
@@ -52,6 +56,7 @@ export type ChangeRequest = {
   venueName: string;
   venueTypeName: string;
   date: string;
+  slot: CalendarSlot | null;
   requestedStatus: CalendarStatus;
   requestedNote: string;
   requestedCustomerName: string;
@@ -59,6 +64,8 @@ export type ChangeRequest = {
   requestedDepositAmount: number | null;
   requestedFromTime: string | null;
   requestedToTime: string | null;
+  requestedBookingPriceAmount: number | null;
+  requestedBookingPriceCurrency: string | null;
   previousStatus: CalendarStatus | null;
   previousNote: string | null;
   previousCustomerName: string | null;
@@ -66,7 +73,10 @@ export type ChangeRequest = {
   previousDepositAmount: number | null;
   previousFromTime: string | null;
   previousToTime: string | null;
+  previousBookingPriceAmount: number | null;
+  previousBookingPriceCurrency: string | null;
   requestedByName: string;
+  requestedById: string;
   ownerName: string;
   status: RequestStatus;
   decisionNote: string;

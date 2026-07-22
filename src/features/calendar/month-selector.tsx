@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { addMonths, getMonthLabel, todayKey } from "@/lib/dates";
+import type { CalendarSlot } from "@/lib/types";
 import { cn } from "@/lib/ui";
 
 const monthNames = [
@@ -33,10 +34,12 @@ const monthNames = [
 
 export function MonthSelector({
   monthKey,
+  selectedSlot,
   selectedVenueId,
   view = "compact",
 }: {
   monthKey: string;
+  selectedSlot: CalendarSlot;
   selectedVenueId: string;
   view?: "compact" | "full";
 }) {
@@ -60,6 +63,7 @@ export function MonthSelector({
   function getMonthHref(nextMonthKey: string) {
     const params = new URLSearchParams({
       month: nextMonthKey,
+      slot: selectedSlot,
       venue: selectedVenueId,
       view,
     });
@@ -87,6 +91,7 @@ export function MonthSelector({
       method="GET"
     >
       <input name="venue" type="hidden" value={selectedVenueId} />
+      <input name="slot" type="hidden" value={selectedSlot} />
       <input name="view" type="hidden" value={view} />
       <Link
         aria-label="Previous month"

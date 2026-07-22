@@ -15,7 +15,12 @@ import { useCmsToasts } from "@/components/cms/use-cms-toasts";
 import { ApprovalsTableFilters } from "@/features/approvals/approvals-table-filters";
 import { useApprovalsColumns } from "@/features/approvals/approvals-table-columns";
 import { getDateLabel } from "@/lib/dates";
-import type { CalendarStatus, RequestStatus } from "@/lib/types";
+import { getCalendarSlotLabel } from "@/lib/calendar-slots";
+import type {
+  CalendarSlot,
+  CalendarStatus,
+  RequestStatus,
+} from "@/lib/types";
 
 export type ApprovalTableRow = {
   id: string;
@@ -23,11 +28,14 @@ export type ApprovalTableRow = {
   venueName: string;
   venueTypeName: string;
   date: string;
+  slot: CalendarSlot | null;
   requestedStatus: CalendarStatus;
   requestedNote: string;
   requestedCustomerName: string;
   requestedCustomerPhone: string;
   requestedDepositAmount: number | null;
+  requestedBookingPriceAmount: number | null;
+  requestedBookingPriceCurrency: string | null;
   requestedFromTime: string | null;
   requestedToTime: string | null;
   previousStatus: CalendarStatus | null;
@@ -35,6 +43,8 @@ export type ApprovalTableRow = {
   previousCustomerName: string | null;
   previousCustomerPhone: string | null;
   previousDepositAmount: number | null;
+  previousBookingPriceAmount: number | null;
+  previousBookingPriceCurrency: string | null;
   previousFromTime: string | null;
   previousToTime: string | null;
   requestedByName: string;
@@ -202,7 +212,9 @@ export function ApprovalsTable({
           title="Delete pending request?"
         >
           This will remove the pending request for {deleteRequest.venueName} on{" "}
-          {getDateLabel(deleteRequest.date)}. It will disappear from the owner
+          {getDateLabel(deleteRequest.date)} ({deleteRequest.slot
+            ? getCalendarSlotLabel(deleteRequest.slot)
+            : "Legacy full day"}). It will disappear from the owner
           approvals page, and the calendar will return to normal because this
           change was not approved yet.
         </DeleteConfirmationModal>
@@ -299,6 +311,7 @@ export function ApprovalsTable({
           { value: "venueName", label: "Venue" },
           { value: "ownerName", label: "Owner" },
           { value: "requestedStatus", label: "Change" },
+          { value: "slot", label: "Session" },
           { value: "status", label: "Status" },
         ]}
         searchPlaceholder="Search requests..."

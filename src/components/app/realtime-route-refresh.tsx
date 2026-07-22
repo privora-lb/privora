@@ -149,7 +149,7 @@ function getCalendarTarget(event: RealtimeEvent | null) {
   return `/calendar?venue=${event.venueId}&month=${event.date.slice(
     0,
     7,
-  )}&date=${event.date}`;
+  )}&date=${event.date}${event.slot ? `&slot=${event.slot}` : ""}`;
 }
 
 function getCurrentPath(pathname: string, queryString: string) {

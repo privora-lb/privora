@@ -28,7 +28,12 @@ import { getOwnerSelectedVenueId } from "@/lib/owner-venue-selection";
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ venue?: string; month?: string; date?: string }>;
+  searchParams: Promise<{
+    venue?: string;
+    month?: string;
+    date?: string;
+    slot?: string;
+  }>;
 }) {
   const user = await requireUser();
   const params = await searchParams;
@@ -66,13 +71,17 @@ export default async function CalendarPage({
     (await getVenueForUser(selectedVenueId, user)) ?? venues[0];
 
   if (selectedVenue.id !== selectedVenueId) {
-    redirect(`/calendar?venue=${selectedVenue.id}&month=${monthKey}`);
+    redirect(
+      `/calendar?venue=${selectedVenue.id}&month=${monthKey}` +
+        `&slot=${params.slot === "night" ? "night" : "day"}`,
+    );
   }
 
   if (pendingDefault && selectedVenue.id === pendingDefault.venueId) {
     redirect(
       `/calendar?venue=${pendingDefault.venueId}` +
-        `&month=${pendingDefault.date.slice(0, 7)}&date=${pendingDefault.date}`,
+        `&month=${pendingDefault.date.slice(0, 7)}&date=${pendingDefault.date}` +
+        `&slot=${pendingDefault.slot === "night" ? "night" : "day"}`,
     );
   }
 
@@ -87,7 +96,7 @@ export default async function CalendarPage({
   const range = getMonthRange(monthKey);
   const shouldShowAdminBookedMarkers =
     selectedVenue.assignedUserRole === "owner";
-  const [entries, pendingRequests, approvedAdminBookedDates] = await Promise.all([
+  const [entries, pendingRequests, approvedAdminBookedSlots] = await Promise.all([
     getCalendarEntries(selectedVenue.id, range.start, range.end),
     getPendingRequestsForVenue(selectedVenue.id, range.start, range.end),
     shouldShowAdminBookedMarkers
@@ -112,13 +121,13 @@ export default async function CalendarPage({
   const calendarDataVersion = [
     ...entries.map(
       (entry) =>
-        `e:${entry.date}:${entry.status}:${entry.note}:${entry.customerName}:${entry.customerPhone}:${entry.depositAmount ?? ""}:${entry.fromTime ?? ""}:${entry.toTime ?? ""}`,
+        `e:${entry.date}:${entry.slot}:${entry.status}:${entry.note}:${entry.customerName}:${entry.customerPhone}:${entry.depositAmount ?? ""}:${entry.bookingPriceAmount ?? ""}:${entry.fromTime ?? ""}:${entry.toTime ?? ""}`,
     ),
     ...pendingRequests.map(
       (request) =>
-        `r:${request.id}:${request.date}:${request.requestedStatus}:${request.requestedNote}:${request.requestedCustomerName}:${request.requestedCustomerPhone}:${request.requestedDepositAmount ?? ""}:${request.requestedFromTime ?? ""}:${request.requestedToTime ?? ""}`,
+        `r:${request.id}:${request.date}:${request.slot ?? "legacy"}:${request.requestedStatus}:${request.requestedNote}:${request.requestedCustomerName}:${request.requestedCustomerPhone}:${request.requestedDepositAmount ?? ""}:${request.requestedBookingPriceAmount ?? ""}:${request.requestedFromTime ?? ""}:${request.requestedToTime ?? ""}`,
     ),
-    ...approvedAdminBookedDates.map((date) => `p:${date}`),
+    ...approvedAdminBookedSlots.map(({ date, slot }) => `p:${date}:${slot}`),
   ].join("|");
 
   return (
@@ -131,9 +140,10 @@ export default async function CalendarPage({
         currentMonthKey={currentMonthKey}
         days={days}
         entries={entries}
-        approvedAdminBookedDates={approvedAdminBookedDates}
+        approvedAdminBookedSlots={approvedAdminBookedSlots}
         initialMobileDate={selectedMobileDate}
         initialSelectedDate={selectedDate}
+        initialSelectedSlot={params.slot === "night" ? "night" : "day"}
         isReadOnlyMonth={isReadOnlyMonth}
         key={`${selectedVenue.id}:${monthKey}:${selectedDate ?? ""}:${calendarDataVersion}`}
         monthKey={monthKey}

@@ -72,6 +72,7 @@ export function userCanRequestVenueChange(user: AppUser, venue: Venue) {
   return (
     user.role === "superadmin" &&
     venue.assignedUserId !== user.id &&
+    venue.assignedUserRole === "owner" &&
     venue.isActive &&
     venue.assignedUserIsActive
   );

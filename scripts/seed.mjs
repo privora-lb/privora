@@ -248,29 +248,39 @@ async function seed() {
       const createdById = venue.assignedUserId === superadminId
         ? superadminId
         : venue.assignedUserId;
+      const slot = index % 2 === 0 ? "day" : "night";
       const isBooked = index % 3 === 0;
       const customerName = isBooked ? `Customer ${index + 1}` : "";
       const customerPhone = isBooked
         ? String(71000000 + index).slice(0, 8)
         : "";
       const depositAmount = isBooked ? 50 + index * 5 : null;
+      const bookingPriceAmount = isBooked ? 200 + index * 10 : null;
+      const bookingPriceCurrency = isBooked ? "USD" : null;
       const fromTime = isBooked
-        ? `${String(9 + (index % 6)).padStart(2, "0")}:00`
+        ? slot === "day"
+          ? `${String(9 + (index % 6)).padStart(2, "0")}:00`
+          : "19:00"
         : null;
       const toTime = isBooked
-        ? `${String(12 + (index % 6)).padStart(2, "0")}:00`
+        ? slot === "day"
+          ? `${String(12 + (index % 6)).padStart(2, "0")}:00`
+          : "01:00"
         : null;
 
       await client.query(
         `INSERT INTO calendar_entries
-          (venue_id, reservation_date, status, note, customer_name,
-           customer_phone, deposit_amount, from_time, to_time, created_by_id,
+          (venue_id, reservation_date, slot, status, note, customer_name,
+           customer_phone, deposit_amount, booking_price_amount,
+           booking_price_currency, from_time, to_time, created_by_id,
            updated_by_id)
          VALUES
-          ($1, CURRENT_DATE + ($2::int), $3, $4, $5, $6, $7, $8::time, $9::time, $10, $10)`,
+          ($1, CURRENT_DATE + ($2::int), $3, $4, $5, $6, $7, $8, $9,
+           $10, $11::time, $12::time, $13, $13)`,
         [
           venue.id,
           (index % 20) + 1,
+          slot,
           isBooked ? "booked" : "available",
           isBooked
             ? `Confirmed booking for ${venue.name}`
@@ -278,6 +288,8 @@ async function seed() {
           customerName,
           customerPhone,
           depositAmount,
+          bookingPriceAmount,
+          bookingPriceCurrency,
           fromTime,
           toTime,
           createdById,
@@ -292,6 +304,7 @@ async function seed() {
     for (let index = 0; index < 30; index += 1) {
       const venue = requestVenues[index % requestVenues.length];
       const status = ["pending", "approved", "rejected"][index % 3];
+      const slot = index % 2 === 0 ? "day" : "night";
       const requestedStatus = index % 2 === 0 ? "booked" : "available";
       const previousStatus = index % 4 === 0 ? null : requestedStatus === "booked" ? "available" : "booked";
       const requestedCustomerName = requestedStatus === "booked"
@@ -303,6 +316,18 @@ async function seed() {
       const requestedDepositAmount = requestedStatus === "booked"
         ? 100 + index * 10
         : null;
+      const requestedBookingPriceAmount = requestedStatus === "booked"
+        ? 300 + index * 10
+        : null;
+      const requestedBookingPriceCurrency = requestedStatus === "booked"
+        ? "USD"
+        : null;
+      const previousBookingPriceAmount = previousStatus === "booked"
+        ? 280 + index * 10
+        : null;
+      const previousBookingPriceCurrency = previousStatus === "booked"
+        ? "USD"
+        : null;
       const requestedFromTime = requestedStatus === "booked"
         ? `${String(10 + (index % 5)).padStart(2, "0")}:30`
         : null;
@@ -312,24 +337,30 @@ async function seed() {
 
       await client.query(
         `INSERT INTO change_requests
-          (venue_id, reservation_date, requested_status, requested_note,
+          (venue_id, reservation_date, slot, requested_status, requested_note,
            requested_customer_name, requested_customer_phone, requested_deposit_amount,
+           requested_booking_price_amount, requested_booking_price_currency,
            requested_from_time, requested_to_time, previous_status, previous_note,
            previous_customer_name, previous_customer_phone, previous_deposit_amount,
-           previous_from_time, previous_to_time, requested_by_id, owner_id, status,
-           decided_by_id, decided_at, decision_note, created_at, updated_at)
+           previous_booking_price_amount, previous_booking_price_currency,
+           previous_from_time, previous_to_time, requested_by_id, owner_id,
+           status, decided_by_id, decided_at, decision_note, created_at, updated_at)
          VALUES
-          ($1, CURRENT_DATE + ($2::int), $3, $4, $5, $6, $7, $8::time,
-           $9::time, $10, $11, $12, $13, $14, $15::time, $16::time, $17,
-           $18, $19, $20, $21, $22, now() - ($23::int * interval '1 day'), now())`,
+          ($1, CURRENT_DATE + ($2::int), $3, $4, $5, $6, $7, $8, $9,
+           $10, $11::time, $12::time, $13, $14, $15, $16, $17, $18,
+           $19, $20::time, $21::time, $22, $23, $24, $25, $26, $27,
+           now() - ($28::int * interval '1 day'), now())`,
         [
           venue.id,
           index + 3,
+          slot,
           requestedStatus,
           `${status === "pending" ? "Pending" : "Historical"} request ${index + 1} for ${venue.name}`,
           requestedCustomerName,
           requestedCustomerPhone,
           requestedDepositAmount,
+          requestedBookingPriceAmount,
+          requestedBookingPriceCurrency,
           requestedFromTime,
           requestedToTime,
           previousStatus,
@@ -337,6 +368,8 @@ async function seed() {
           previousStatus ? `Previous Customer ${index + 1}` : null,
           previousStatus ? String(73000000 + index).slice(0, 8) : null,
           previousStatus ? 75 + index * 5 : null,
+          previousBookingPriceAmount,
+          previousBookingPriceCurrency,
           previousStatus ? "09:00" : null,
           previousStatus ? "12:00" : null,
           superadminId,

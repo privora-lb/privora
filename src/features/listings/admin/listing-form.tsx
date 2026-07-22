@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   CalendarClock,
   CheckCircle2,
+  CircleDollarSign,
   Clock3,
   ContactRound,
   Eye,
@@ -36,6 +37,7 @@ import {
   ListingToggle,
 } from "./listing-form-controls";
 import { ListingImageManager } from "./listing-image-manager";
+import { ListingPricingFields } from "./listing-pricing-fields";
 import {
   ListingInclusionsEditor,
   ListingRulesEditor,
@@ -198,7 +200,7 @@ export function ListingForm({
         <input name="id" type="hidden" value={listing?.id ?? ""} />
 
         <ListingFormSection
-          description="Public identity, pricing, location, and main description."
+          description="Public identity, location, and main description."
           icon={MapPin}
           title="Listing information"
         >
@@ -218,16 +220,6 @@ export function ListingForm({
               name="slug"
               pattern="[a-z0-9-]+"
               placeholder="cedar-horizon-pool"
-            />
-            <ListingTextField
-              defaultValue={listing?.priceAmount ?? 0}
-              error={errors.priceAmount}
-              label="Price ($)"
-              min="0"
-              name="priceAmount"
-              required
-              step="0.01"
-              type="number"
             />
             <ListingTextField
               defaultValue={listing?.locationName}
@@ -257,6 +249,14 @@ export function ListingForm({
               rows={5}
             />
           </div>
+        </ListingFormSection>
+
+        <ListingFormSection
+          description="Choose weekend-rate days and set separate day and night prices."
+          icon={CircleDollarSign}
+          title="Pricing schedule"
+        >
+          <ListingPricingFields errors={errors} listing={listing} />
         </ListingFormSection>
 
         <ListingFormSection

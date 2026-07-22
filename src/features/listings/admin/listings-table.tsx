@@ -21,7 +21,10 @@ import { DeleteConfirmationModal } from "@/components/cms/delete-confirmation-mo
 import { useCmsToasts } from "@/components/cms/use-cms-toasts";
 import { ListingImage } from "@/features/listings/listing-image";
 import type { PublicListing } from "@/features/listings/types";
-import { formatListingPrice } from "@/features/listings/utils";
+import {
+  formatListingPriceRange,
+  getListingStartingPrice,
+} from "@/features/listings/utils";
 
 export function ListingsTable({ listings }: { listings: PublicListing[] }) {
   const router = useRouter();
@@ -73,17 +76,17 @@ export function ListingsTable({ listings }: { listings: PublicListing[] }) {
         textValue: (row: PublicListing) => row.locationName,
       },
       {
-        key: "priceAmount",
-        label: "Price",
+        key: "priceRange",
+        label: "Rates",
         align: "end" as const,
-        baseWidth: 130,
-        minWidth: 110,
-        maxWidth: 170,
+        baseWidth: 160,
+        minWidth: 135,
+        maxWidth: 210,
         sortable: true,
         sortType: "number" as const,
-        sortValue: (row: PublicListing) => row.priceAmount,
+        sortValue: (row: PublicListing) => getListingStartingPrice(row),
         textValue: (row: PublicListing) =>
-          formatListingPrice(row.priceAmount, row.priceCurrency),
+          formatListingPriceRange(row),
       },
       {
         key: "capacity",

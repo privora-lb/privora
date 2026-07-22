@@ -16,7 +16,11 @@ const listings = [
   {
     name: "Cedar Horizon Pool",
     slug: "cedar-horizon-pool",
-    price: 320,
+    weekdayDayPrice: 320,
+    weekdayNightPrice: 380,
+    weekendDayPrice: 400,
+    weekendNightPrice: 460,
+    weekendIsoDays: [6, 7],
     location: "Faraya, Lebanon",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Faraya%2C%20Lebanon",
     poolCapacity: 24,
@@ -48,7 +52,11 @@ const listings = [
   {
     name: "Azure Bay Retreat",
     slug: "azure-bay-retreat",
-    price: 410,
+    weekdayDayPrice: 410,
+    weekdayNightPrice: 480,
+    weekendDayPrice: 520,
+    weekendNightPrice: 590,
+    weekendIsoDays: [5, 6, 7],
     location: "Batroun, Lebanon",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Batroun%2C%20Lebanon",
     poolCapacity: 30,
@@ -81,7 +89,11 @@ const listings = [
   {
     name: "Olive Grove Private",
     slug: "olive-grove-private",
-    price: 245,
+    weekdayDayPrice: 245,
+    weekdayNightPrice: 290,
+    weekendDayPrice: 315,
+    weekendNightPrice: 360,
+    weekendIsoDays: [6, 7],
     location: "Beit Mery, Lebanon",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Beit%20Mery%2C%20Lebanon",
     poolCapacity: 18,
@@ -113,7 +125,11 @@ const listings = [
   {
     name: "Stone & Water House",
     slug: "stone-and-water-house",
-    price: 375,
+    weekdayDayPrice: 375,
+    weekdayNightPrice: 430,
+    weekendDayPrice: 470,
+    weekendNightPrice: 525,
+    weekendIsoDays: [5, 6],
     location: "Broummana, Lebanon",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Broummana%2C%20Lebanon",
     poolCapacity: 26,
@@ -221,22 +237,35 @@ async function seed() {
       const listingResult = await client.query(
         `INSERT INTO public_listings (
           name, slug, price_amount, price_currency, location_name,
-          google_maps_url, pool_capacity, stay_capacity, day_check_in,
-          day_check_out, night_check_in, night_check_out, has_wifi,
-          description, bedrooms, toilets, pool_length_m, pool_width_m,
-          pool_depth_m, phone_number, whatsapp_number, instagram_url,
-          facebook_url, tiktok_url, website_url, youtube_url,
+          weekday_day_price_amount, weekday_night_price_amount,
+          weekend_day_price_amount, weekend_night_price_amount,
+          weekend_iso_days, google_maps_url, pool_capacity, stay_capacity,
+          day_check_in, day_check_out, night_check_in, night_check_out,
+          has_wifi, description, bedrooms, toilets, pool_length_m,
+          pool_width_m, pool_depth_m, phone_number, whatsapp_number,
+          instagram_url, facebook_url, tiktok_url, website_url, youtube_url,
           calendar_venue_id, is_published, created_by_id
         ) VALUES (
-          $1, $2, $3, 'USD', $4, $5, $6, $7, $8::time, $9::time,
-          $10::time, $11::time, $12, $13, $14, $15, $16, $17, $18,
-          $19, $20, $21, $22, $23, $24, $25, $26, true, $27
+          $1, $2, $3, 'USD', $4, $5, $6, $7, $8, $9::smallint[],
+          $10, $11, $12, $13::time, $14::time, $15::time, $16::time,
+          $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27,
+          $28, $29, $30, $31, true, $32
         ) RETURNING id`,
         [
           listing.name,
           listing.slug,
-          listing.price,
+          Math.min(
+            listing.weekdayDayPrice,
+            listing.weekdayNightPrice,
+            listing.weekendDayPrice,
+            listing.weekendNightPrice,
+          ),
           listing.location,
+          listing.weekdayDayPrice,
+          listing.weekdayNightPrice,
+          listing.weekendDayPrice,
+          listing.weekendNightPrice,
+          listing.weekendIsoDays,
           listing.mapsUrl,
           listing.poolCapacity,
           listing.stayCapacity,
@@ -308,12 +337,41 @@ async function seed() {
     for (const venueId of linkedVenueIds) {
       await client.query(
         `INSERT INTO calendar_entries
-          (venue_id, reservation_date, status, note, created_by_id, updated_by_id)
-         SELECT $1, date_trunc('month', CURRENT_DATE)::date + offset_value,
-           'booked', 'Local public calendar demonstration', $2, $2
-         FROM unnest(ARRAY[2, 6, 11, 17, 23]) AS offset_value
-         ON CONFLICT (venue_id, reservation_date)
-         DO UPDATE SET status = 'booked', updated_by_id = EXCLUDED.updated_by_id`,
+          (venue_id, reservation_date, slot, status, note,
+           booking_price_amount, booking_price_currency, created_by_id,
+           updated_by_id)
+         SELECT
+           $1,
+           date_trunc('month', CURRENT_DATE)::date + offset_value,
+           slot_value,
+           'booked',
+           'Local public calendar demonstration',
+           CASE
+             WHEN EXTRACT(
+               ISODOW FROM date_trunc('month', CURRENT_DATE)::date + offset_value
+             )::smallint = ANY(listing.weekend_iso_days)
+             THEN CASE slot_value
+               WHEN 'day' THEN listing.weekend_day_price_amount
+               ELSE listing.weekend_night_price_amount
+             END
+             ELSE CASE slot_value
+               WHEN 'day' THEN listing.weekday_day_price_amount
+               ELSE listing.weekday_night_price_amount
+             END
+           END,
+           listing.price_currency,
+           $2,
+           $2
+         FROM public_listings listing
+         CROSS JOIN unnest(ARRAY[2, 6, 11, 17, 23]) AS offsets(offset_value)
+         CROSS JOIN unnest(ARRAY['day', 'night']::text[]) AS slots(slot_value)
+         WHERE listing.calendar_venue_id = $1
+         ON CONFLICT (venue_id, reservation_date, slot)
+         DO UPDATE SET
+           status = 'booked',
+           booking_price_amount = EXCLUDED.booking_price_amount,
+           booking_price_currency = EXCLUDED.booking_price_currency,
+           updated_by_id = EXCLUDED.updated_by_id`,
         [venueId, adminId],
       );
     }

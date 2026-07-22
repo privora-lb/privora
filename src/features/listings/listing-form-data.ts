@@ -1,4 +1,5 @@
 import { createListingSlug } from "@/features/listings/utils";
+import type { IsoWeekday } from "@/features/listings/types";
 import { getFormString } from "@/lib/forms";
 
 export type ListingImageInput = {
@@ -20,7 +21,11 @@ export type ListingInput = {
   id: string;
   name: string;
   slug: string;
-  priceAmount: number;
+  weekdayDayPriceAmount: number;
+  weekdayNightPriceAmount: number;
+  weekendDayPriceAmount: number;
+  weekendNightPriceAmount: number;
+  weekendIsoDays: IsoWeekday[];
   priceCurrency: "USD";
   locationName: string;
   googleMapsUrl: string;
@@ -68,7 +73,31 @@ export function parseListingInput(formData: FormData) {
     id: getFormString(formData, "id"),
     name,
     slug,
-    priceAmount: numberField(formData, "priceAmount", "Price", errors, 0),
+    weekdayDayPriceAmount: moneyField(
+      formData,
+      "weekdayDayPriceAmount",
+      "Weekday day-use price",
+      errors,
+    ),
+    weekdayNightPriceAmount: moneyField(
+      formData,
+      "weekdayNightPriceAmount",
+      "Weekday night-use price",
+      errors,
+    ),
+    weekendDayPriceAmount: moneyField(
+      formData,
+      "weekendDayPriceAmount",
+      "Weekend day-use price",
+      errors,
+    ),
+    weekendNightPriceAmount: moneyField(
+      formData,
+      "weekendNightPriceAmount",
+      "Weekend night-use price",
+      errors,
+    ),
+    weekendIsoDays: weekendIsoDaysField(formData, errors),
     priceCurrency: "USD",
     locationName: requiredText(
       formData,
@@ -164,6 +193,31 @@ export function parseListingInput(formData: FormData) {
     errors.dayCheckOut = "Day check-out must be after day check-in.";
   }
 
+  if (
+    input.nightCheckIn &&
+    input.nightCheckOut &&
+    input.nightCheckIn === input.nightCheckOut
+  ) {
+    errors.nightCheckOut = "Night check-out cannot equal night check-in.";
+  }
+
+  if (
+    isTimeValue(input.dayCheckIn) &&
+    isTimeValue(input.dayCheckOut) &&
+    input.dayCheckIn < input.dayCheckOut &&
+    isTimeValue(input.nightCheckIn) &&
+    isTimeValue(input.nightCheckOut) &&
+    input.nightCheckIn !== input.nightCheckOut &&
+    recurringUsePeriodsOverlap(
+      input.dayCheckIn,
+      input.dayCheckOut,
+      input.nightCheckIn,
+      input.nightCheckOut,
+    )
+  ) {
+    errors.nightCheckIn = "Day-use and night-use hours cannot overlap.";
+  }
+
   return { errors, input };
 }
 
@@ -202,6 +256,61 @@ function numberField(
   return value;
 }
 
+function moneyField(
+  formData: FormData,
+  key: string,
+  label: string,
+  errors: Record<string, string>,
+) {
+  const rawValue = getFormString(formData, key);
+
+  if (!rawValue) {
+    errors[key] = `${label} is required.`;
+    return 0;
+  }
+
+  if (!/^\d+(?:\.\d{1,2})?$/.test(rawValue)) {
+    errors[key] = `${label} must be a valid amount with up to two decimals.`;
+    return Number(rawValue) || 0;
+  }
+
+  const amount = Number(rawValue);
+
+  if (!Number.isFinite(amount) || amount < 0 || amount > 9_999_999_999.99) {
+    errors[key] = `${label} must be between 0 and 9,999,999,999.99.`;
+  }
+
+  return amount;
+}
+
+function weekendIsoDaysField(
+  formData: FormData,
+  errors: Record<string, string>,
+) {
+  const suppliedDays = formData.getAll("weekendIsoDays");
+  const normalizedDays = [
+    ...new Set(
+      suppliedDays
+        .filter((value): value is string => typeof value === "string")
+        .map(Number)
+        .filter((value): value is IsoWeekday =>
+          Number.isInteger(value) && value >= 1 && value <= 7,
+        ),
+    ),
+  ].sort((left, right) => left - right);
+
+  if (
+    normalizedDays.length !== suppliedDays.length ||
+    normalizedDays.length === 0 ||
+    normalizedDays.length === 7
+  ) {
+    errors.weekendIsoDays =
+      "Choose between one and six days that should use weekend rates.";
+  }
+
+  return normalizedDays;
+}
+
 function integerField(
   formData: FormData,
   key: string,
@@ -226,11 +335,52 @@ function timeField(
 ) {
   const value = getFormString(formData, key);
 
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+  if (!isTimeValue(value)) {
     errors[key] = `${label} is required.`;
   }
 
   return value;
+}
+
+function isTimeValue(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function recurringUsePeriodsOverlap(
+  dayStartValue: string,
+  dayEndValue: string,
+  nightStartValue: string,
+  nightEndValue: string,
+) {
+  const dayStart = timeToMinutes(dayStartValue);
+  const dayEnd = timeToMinutes(dayEndValue);
+  const nightStart = timeToMinutes(nightStartValue);
+  const rawNightEnd = timeToMinutes(nightEndValue);
+  const nightCrossesMidnight = rawNightEnd < nightStart;
+  const nightEnd = nightCrossesMidnight
+    ? rawNightEnd + 24 * 60
+    : rawNightEnd;
+
+  if (periodsOverlap(dayStart, dayEnd, nightStart, nightEnd)) return true;
+
+  return (
+    nightCrossesMidnight &&
+    periodsOverlap(dayStart, dayEnd, nightStart - 24 * 60, rawNightEnd)
+  );
+}
+
+function periodsOverlap(
+  leftStart: number,
+  leftEnd: number,
+  rightStart: number,
+  rightEnd: number,
+) {
+  return leftStart < rightEnd && rightStart < leftEnd;
+}
+
+function timeToMinutes(value: string) {
+  const [hours = "0", minutes = "0"] = value.split(":");
+  return Number(hours) * 60 + Number(minutes);
 }
 
 function phoneField(

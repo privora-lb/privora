@@ -8,35 +8,38 @@ import {
   pendingCalendarColor,
 } from "@/lib/calendar-colors";
 import {
-  getCalendarDetailPairs,
-  type CalendarDetailPair,
-} from "@/features/calendar/calendar-detail-utils";
+  calendarSlots,
+  getCalendarSlotKey,
+  getCalendarSlotShortLabel,
+} from "@/lib/calendar-slots";
 import { addDays, getDateLabel, toDateKey } from "@/lib/dates";
-import type { CalendarEntry, ChangeRequest } from "@/lib/types";
+import type {
+  CalendarEntry,
+  CalendarSlot,
+  ChangeRequest,
+} from "@/lib/types";
 import { cn } from "@/lib/ui";
 
 export function MobileCalendarView({
-  approvedAdminBookedDates,
+  approvedAdminBookedSlots,
   currentMonth,
-  entriesByDate,
+  entriesBySlot,
   isReadOnlyMonth,
   onSelectDate,
-  requestsByDate,
+  requestsBySlot,
   selectedDate,
   selectedWeekDays,
 }: {
-  approvedAdminBookedDates: Set<string>;
+  approvedAdminBookedSlots: Set<string>;
   currentMonth: Date;
-  entriesByDate: Map<string, CalendarEntry>;
+  entriesBySlot: Map<string, CalendarEntry>;
   isReadOnlyMonth?: boolean;
   onSelectDate: (dateKey: string) => void;
-  requestsByDate: Map<string, ChangeRequest>;
+  requestsBySlot: Map<string, ChangeRequest>;
   selectedDate: string;
   selectedWeekDays: Date[];
 }) {
   const selectedDay = new Date(`${selectedDate}T00:00:00`);
-  const selectedEntry = entriesByDate.get(selectedDate);
-  const selectedRequest = requestsByDate.get(selectedDate);
   const selectedTitle = getDateLabel(selectedDate);
   const previousWeekDate = toDateKey(addDays(selectedDay, -7));
   const nextWeekDate = toDateKey(addDays(selectedDay, 7));
@@ -71,53 +74,47 @@ export function MobileCalendarView({
 
         <div className="grid grid-cols-7 gap-1.5 p-2">
           {selectedWeekDays.map((day) => {
-            const key = toDateKey(day);
-            const entry = entriesByDate.get(key);
-            const request = requestsByDate.get(key);
-            const statusStyle = entry
-              ? calendarStatusColors[entry.status]
-              : calendarStatusColors.available;
-            const isSelected = key === selectedDate;
+            const date = toDateKey(day);
+            const isSelected = date === selectedDate;
             const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
-            const showAdminBookedMarker =
-              entry?.status === "booked" && approvedAdminBookedDates.has(key);
+            const statuses = calendarSlots.map((slot) => {
+              const key = getCalendarSlotKey(date, slot);
+              const status = entriesBySlot.get(key)?.status ?? "available";
+              return {
+                adminBooked:
+                  status === "booked" && approvedAdminBookedSlots.has(key),
+                pending: requestsBySlot.has(key),
+                slot,
+                status,
+              };
+            });
 
-            const className = cn(
-              "relative grid min-h-[52px] min-w-0 place-items-center gap-1 rounded-lg border px-0 py-1.5 text-center transition active:scale-[0.98]",
-              statusStyle.cell,
-              request && "ring-2 ring-amber-300/50",
-              !isCurrentMonth && "opacity-55",
-              isSelected &&
-                "border-[#007c92] shadow-[0_8px_20px_rgba(0,124,146,0.12)] ring-2 ring-[#007c92]/18",
-            );
-            const content = (
-              <>
-                {showAdminBookedMarker ? <MobileAdminBookedMarker /> : null}
-                <span className="grid h-6 w-6 place-items-center rounded-md bg-white/80 text-[11px] font-black leading-none text-slate-950 shadow-[0_4px_10px_rgba(15,23,42,0.06)] max-[360px]:h-5 max-[360px]:w-5 max-[360px]:text-[10px]">
-                  {day.getDate()}
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", statusStyle.dot)} />
-                  {request ? (
-                    <span
-                      className={cn(
-                        "h-1.5 w-1.5 rounded-full",
-                        pendingCalendarColor.dot,
-                      )}
-                    />
-                  ) : null}
-                </span>
-              </>
-            );
             return (
               <button
-                aria-label={getDateLabel(key)}
-                className={className}
-                key={key}
-                onClick={() => onSelectDate(key)}
+                aria-label={`${getDateLabel(date)}: ${statuses
+                  .map(
+                    ({ pending, slot, status }) =>
+                      `${getCalendarSlotShortLabel(slot)} ${status}${pending ? ", pending change" : ""}`,
+                  )
+                  .join("; ")}`}
+                className={cn(
+                  "grid min-h-[72px] min-w-0 gap-1 rounded-lg border border-[#d8e9ee] bg-white px-1 py-1.5 text-center transition active:scale-[0.98]",
+                  !isCurrentMonth && "opacity-55",
+                  isSelected &&
+                    "border-[#007c92] shadow-[0_8px_20px_rgba(0,124,146,0.12)] ring-2 ring-[#007c92]/18",
+                )}
+                key={date}
+                onClick={() => onSelectDate(date)}
                 type="button"
               >
-                {content}
+                <span className="mx-auto grid h-6 w-6 place-items-center rounded-md bg-[#f8fcfd] text-[11px] font-black leading-none text-slate-950">
+                  {day.getDate()}
+                </span>
+                <span className="grid gap-0.5">
+                  {statuses.map((state) => (
+                    <MobileSlotIndicator key={state.slot} {...state} />
+                  ))}
+                </span>
               </button>
             );
           })}
@@ -135,142 +132,107 @@ export function MobileCalendarView({
         </div>
 
         <div className="grid gap-3 p-4">
-          <MobileSelectedEntry
-            entry={selectedEntry}
-            isReadOnly={isReadOnlyMonth}
-            request={selectedRequest}
-          />
+          {calendarSlots.map((slot) => {
+            const key = getCalendarSlotKey(selectedDate, slot);
+            return (
+              <MobileSelectedSlot
+                entry={entriesBySlot.get(key)}
+                key={slot}
+                request={requestsBySlot.get(key)}
+                slot={slot}
+              />
+            );
+          })}
+          {isReadOnlyMonth ? (
+            <span className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#d8e9ee] bg-[#f8fcfd] px-4 text-[12px] font-black uppercase tracking-[0.08em] text-slate-500">
+              Display only
+            </span>
+          ) : null}
         </div>
       </article>
     </div>
   );
 }
 
-function MobileAdminBookedMarker() {
+function MobileSlotIndicator({
+  adminBooked,
+  pending,
+  slot,
+  status,
+}: {
+  adminBooked: boolean;
+  pending: boolean;
+  slot: CalendarSlot;
+  status: CalendarEntry["status"] | "available";
+}) {
+  const style = calendarStatusColors[status];
+
   return (
-    <span
-      aria-label="Booked by superadmin request"
-      className="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-[#2563eb] text-[8px] font-black leading-none text-white shadow-[0_6px_12px_rgba(37,99,235,0.25)] ring-1 ring-white/80"
-      title="Booked by superadmin request"
-    >
-      P
+    <span className="flex items-center justify-center gap-1 text-[8px] font-black text-slate-500">
+      <span>{slot === "day" ? "D" : "N"}</span>
+      <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+      {pending ? (
+        <span className={cn("h-1.5 w-1.5 rounded-full", pendingCalendarColor.dot)} />
+      ) : null}
+      {adminBooked ? <span className="text-[7px] font-black text-blue-600">P</span> : null}
     </span>
   );
 }
 
-function MobileSelectedEntry({
+function MobileSelectedSlot({
   entry,
-  isReadOnly,
   request,
+  slot,
 }: {
   entry?: CalendarEntry;
-  isReadOnly?: boolean;
   request?: ChangeRequest;
+  slot: CalendarSlot;
 }) {
-  const currentStatus = entry?.status ?? "available";
-  const statusStyle = calendarStatusColors[currentStatus];
-  const details = getCalendarDetails({
-    customerName: entry?.customerName ?? "",
-    customerPhone: entry?.customerPhone ?? "",
-    depositAmount: entry?.depositAmount ?? null,
-    fromTime: entry?.fromTime ?? null,
-    toTime: entry?.toTime ?? null,
-  });
-  const note = entry?.note || "No current note.";
-
-  return (
-    <>
-      <span
-        className={cn(
-          "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-black capitalize",
-          statusStyle.label,
-        )}
-      >
-        <span className={cn("h-2 w-2 rounded-full", statusStyle.dot)} />
-        {currentStatus}
-      </span>
-      <CalendarDetailsCard details={details} emptyLabel="No customer details." />
-      <p className="m-0 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 text-[13px] font-bold leading-relaxed text-slate-700">
-        Note: {note}
-      </p>
-      {request ? <MobilePendingRequest request={request} /> : null}
-      {isReadOnly ? (
-        <span className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#d8e9ee] bg-[#f8fcfd] px-4 text-[12px] font-black uppercase tracking-[0.08em] text-slate-500">
-          Display only
-        </span>
-      ) : null}
-    </>
+  const status = entry?.status ?? "available";
+  const style = calendarStatusColors[status];
+  const bookingPrice = formatBookingPrice(
+    entry?.bookingPriceAmount ?? null,
+    entry?.bookingPriceCurrency ?? null,
   );
-}
-
-function MobilePendingRequest({ request }: { request: ChangeRequest }) {
-  const details = getCalendarDetails({
-    customerName: request.requestedCustomerName,
-    customerPhone: request.requestedCustomerPhone,
-    depositAmount: request.requestedDepositAmount,
-    fromTime: request.requestedFromTime,
-    toTime: request.requestedToTime,
-  });
 
   return (
-    <div className="grid gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-3 text-amber-900">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.1em]">
-          <span className={cn("h-2 w-2 rounded-full", pendingCalendarColor.dot)} />
-          Pending request
+    <div className={cn("grid gap-2 rounded-2xl border p-3", style.border, "bg-white")}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-black text-slate-900">
+          {getCalendarSlotShortLabel(slot)} use
         </span>
-        <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black capitalize ring-1 ring-amber-200">
-          Change to {request.requestedStatus}
+        <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black capitalize", style.label)}>
+          <span className={cn("h-2 w-2 rounded-full", style.dot)} />
+          {status}
         </span>
       </div>
-      <p className="m-0 text-[13px] font-bold leading-relaxed text-amber-900/85">
-        Request: {request.requestedNote || "No request note supplied."}
-      </p>
-      <CalendarDetailsCard
-        details={details}
-        emptyLabel="No requested customer details."
-      />
-    </div>
-  );
-}
-
-type CalendarDetails = {
-  customerName: string;
-  customerPhone: string;
-  depositAmount: number | null;
-  fromTime: string | null;
-  toTime: string | null;
-};
-
-function getCalendarDetails(details: CalendarDetails) {
-  return getCalendarDetailPairs(details);
-}
-
-function CalendarDetailsCard({
-  details,
-  emptyLabel,
-}: {
-  details: CalendarDetailPair[];
-  emptyLabel: string;
-}) {
-  return (
-    <div className="grid gap-2 rounded-xl border border-slate-100 bg-white px-3 py-3">
-      {details.length ? (
-        details.map(([label, value]) => (
-          <div className="flex items-center justify-between gap-3" key={label}>
-            <span className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
-              {label}
-            </span>
-            <span className="min-w-0 truncate text-right text-[13px] font-black text-slate-800">
-              {value}
-            </span>
-          </div>
-        ))
+      {entry?.customerName || entry?.customerPhone || bookingPrice ? (
+        <div className="grid gap-1 text-xs font-bold text-slate-600">
+          {entry?.customerName ? <span>{entry.customerName}</span> : null}
+          {entry?.customerPhone ? <span>{entry.customerPhone}</span> : null}
+          {bookingPrice ? <span>Agreed price: {bookingPrice}</span> : null}
+        </div>
       ) : (
-        <span className="text-[13px] font-bold text-slate-500">{emptyLabel}</span>
+        <span className="text-xs font-bold text-slate-500">No customer details.</span>
       )}
+      {request ? (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-black text-amber-800">
+          <span className={cn("h-2 w-2 rounded-full", pendingCalendarColor.dot)} />
+          Pending change to {request.requestedStatus}
+        </span>
+      ) : null}
     </div>
   );
+}
+
+function formatBookingPrice(amount: number | null, currency: string | null) {
+  if (amount === null || !currency) return "";
+
+  return new Intl.NumberFormat("en-US", {
+    currency,
+    maximumFractionDigits: 2,
+    style: "currency",
+  }).format(amount);
 }
 
 function MobileWeekLink({
@@ -290,12 +252,7 @@ function MobileWeekLink({
       : "grid h-9 w-9 place-items-center rounded-xl border border-[#c9e5eb] bg-white text-[#0b4658] transition active:scale-95";
 
   return (
-    <button
-      aria-label={label}
-      className={className}
-      onClick={onClick}
-      type="button"
-    >
+    <button aria-label={label} className={className} onClick={onClick} type="button">
       {children}
     </button>
   );
